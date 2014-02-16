@@ -229,6 +229,7 @@ Lua的表
     nums[i] = number of keys between 2^(i-1) and 2^i
     
 得到的结果是:
+
     nums[0] = 1(1落在此区间)
     nums[1] = 1(2落在此区间)
     nums[2] = 1(3落在此区间)

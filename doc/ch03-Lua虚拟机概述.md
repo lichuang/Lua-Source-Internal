@@ -40,9 +40,100 @@ Lua的API中提供了luaL_dofile函数,它实际上是个宏,内部首先调用l
 
 不难想像,Lua词法分析之后产生的opcode等相关数据都在这个Proto类型的结构体中.
 
-紧跟着再来看lua_pcall函数是如何将产生的opcode放入虚拟机执行的.
+回过头再来看lua_pcall函数是如何将产生的opcode放入虚拟机执行的.
 
-lua_pcall函数中,首先获取需要调用的函数指针:
+	(lapi.c)
+	805 LUA_API int lua_pcall (lua_State *L, int nargs, int nresults, int errfunc) {
+ 	806   struct CallS c;
+ 	807   int status;
+ 	808   ptrdiff_t func;
+ 	809   lua_lock(L);
+ 	810   api_checknelems(L, nargs+1);
+ 	811   checkresults(L, nargs, nresults);
+ 	812   if (errfunc == 0)
+ 	813     func = 0;
+ 	814   else {
+ 	815     StkId o = index2adr(L, errfunc);
+ 	816     api_checkvalidindex(L, o);
+ 	817     func = savestack(L, o);
+ 	818   }
+ 	819   c.func = L->top - (nargs+1);  /* function to be called */
+ 	820   c.nresults = nresults;
+ 	821   status = luaD_pcall(L, f_call, &c, savestack(L, c.func), func);
+ 	822   adjustresults(L, nresults);
+ 	823   lua_unlock(L);
+ 	824   return status;
+ 	825 }
+ 
+ lua_pcall函数中,首先获取需要调用的函数指针:
+ 
+  	819   c.func = L->top - (nargs+1);  /* function to be called */
+  	
+这里的nargs是由函数参数传入的,luaL_dofile中调用lua_pcall时这里传入的参数是0,换句话说,这里得到的函数对象指针就是在f_parser函数中最后放入Lua栈的指针.
 
+继续往下执行,走到luaD_call函数:
+
+	(ldo.c)
+	369 void luaD_call (lua_State *L, StkId func, int nResults) {
+	370   if (++L->nCcalls >= LUAI_MAXCCALLS) {
+	371     if (L->nCcalls == LUAI_MAXCCALLS)
+	372       luaG_runerror(L, "C stack overflow");
+	373     else if (L->nCcalls >= (LUAI_MAXCCALLS + (LUAI_MAXCCALLS>>3)))
+	374       luaD_throw(L, LUA_ERRERR);  /* error while handing stack error */
+	375   }  
+	376   if (luaD_precall(L, func, nResults) == PCRLUA)  /* is a Lua function? */
+	377     luaV_execute(L, 1);  /* call it */
+	378   L->nCcalls--; 
+	379   luaC_checkGC(L);
+	380 } 
+	
+该函数中的这一段代码:
+
+	376   if (luaD_precall(L, func, nResults) == PCRLUA)  /* is a Lua function? */
+	377     luaV_execute(L, 1);  /* call it */
+	
+将会进入luaV_execute函数,这里是虚拟机执行代码的主函数:
+
+	(lvm.c)
+	373 void luaV_execute (lua_State *L, int nexeccalls) {
+	374   LClosure *cl;           
+	375   StkId base;             
+	376   TValue *k;              
+	377   const Instruction *pc;
+	378  reentry:  /* entry point */
+	379   lua_assert(isLua(L->ci));
+	380   pc = L->savedpc;
+	381   cl = &clvalue(L->ci->func)->l; 
+	382   base = L->base;  
+	383   k = cl->p->k;
+	384   /* main loop of interpreter */ 
+	385   for (;;) {    
+	386     const Instruction i = *pc++;   
+	387     StkId ra;   
+	388     if ((L->hookmask & (LUA_MASKLINE | LUA_MASKCOUNT)) &&
+	389         (--L->hookcount == 0 || L->hookmask & LUA_MASKLINE)) { 
+	390       traceexec(L, pc);
+	391       if (L->status == LUA_YIELD) {  /* did hook yield? */
+	392         L->savedpc = pc - 1;
+	393         return;           
+	394       }
+	395       base = L->base;
+	396     }
+	397     /* warning!! several calls may realloc the stack and invalidate `ra' */
+	398     ra = RA(i); 
+	/* 后面是各种Opcode的处理流程 */
+	
+可以看到,这里的pc指针里存放的是虚拟机opcode代码,它最开始从L->savepc初始化而来,而L->savepc在luaD_precall中赋值:
+
+	(ldo.c)
+	293     L->savedpc = p->code;  /* starting point */
+	
+现在,大致的流程已经清楚了,我们来回顾一下整个流程:
+
+	1) 函数f_parser中,对Lua代码文件的分析返回了Proto指针
+	2) 函数luaD_precall中,将Lua_state的savepc指针指向1)中的Proto结构体的code指针
+	3) 函数luaV_execute中,pc指针指向2)中的savepc指针,紧跟着就是一个大的循环体,依次取出其中的opcode进行执行.
+	
+		
 
 

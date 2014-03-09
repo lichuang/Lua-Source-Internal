@@ -4,6 +4,7 @@
 ##数据结构定义
 表可以说是Lua中唯一的数据类型了,使用Lua表,可以模拟出其他各种数据结构--数组,链表,树等等.首先来看Lua表的数据类型定义:
 
+    (lobject.h)
     319 /*
     320 ** Tables
     321 */
@@ -34,7 +35,7 @@
     346   GCObject *gclist;
     347   int sizearray;  /* size of `array' array */
     348 } Table;
-        (lobject.h文件)
+
 
 来逐个解释一下Table这个数据结构中的成员定义:
 
@@ -47,7 +48,7 @@
 
 这是一个byte类型的数据,用于表示在这个表中提供了哪些meta method.在最开始,这个flags是空的,也就是为0,当查找了一次之后,如果该表中存在某个meta method,那么将该meta method对应的flag bit置为1,这样下一次查找时只需要比较这个bit就可以知道了.每个meta method对应的bit定义在ltm.h文件中:
 
-        
+	(ltm.h)
     14 /*
     15 * WARNING: if you change the order of this enumeration,
     16 * grep "ORDER TM"
@@ -98,6 +99,7 @@ Lua表数组部分的大小.
 
 紧跟着来看看Lua表中结点的数据类型.首先从Node的类型定义可以看出,它包含两个成员,其中一个表示结点的key,另一个表示结点的value.值部分就不多解释了,还是Lua中的通用数据类型TValue,来看看key部分的含义:
 
+	(lobject.h)
     329 typedef union TKey {
     330   struct {
     331     TValuefields;
@@ -105,16 +107,15 @@ Lua表数组部分的大小.
     333   } nk;
     334   TValue tvk;
     335 } TKey;
-    (lobject.h)
 
 可以看到这个数据类型是一个union类型,一般看到一个数据类型是union,就可以知道这个数据想以一种较为省内存的方式来表示多种用途含义,而这些用途之间是"互斥"的,也就是说,在某个时刻该数据类型只会有其中的一个含义.这种C编程技巧在Lua中非常常见,可以回头再看看前面的通用数据类型消化一下这样的技巧.
 
 可是在这里,我却有一点疑问是否需要这么做,因为TValue的定义如下:
 
-     73 typedef struct lua_TValue {
-     74   TValuefields;
-     75 } TValue;
-     (lobject.h)
+	(lobject.h)
+	73 typedef struct lua_TValue {
+    74   TValuefields;
+    75 } TValue;
 
 结合TKey的定义可知,似乎这个union实际上表达成这样的定义更为"合适"一些:
 
@@ -163,6 +164,7 @@ Lua表数组部分的大小.
 ###新增元素
 接下来继续看添加一个新的元素具体的流程,这里比较复杂,因为涉及到重新分配表中数组和Hash部分的流程.需要说明的时,这部分的API,包括luaH_set/luaH_setnum/luaH_setstr三个函数,它们的实际行为,并不在其函数内部对key所对应的数据进行添加或者修改,而是返回根据该key查找到的TValue指针,由外部的使用者来进行实际的替换操作,最典型的例子就是settable这个OpCode了:
 
+	(lvm.c)
     134 void luaV_settable (lua_State *L, const TValue *t, TValue *key, StkId val) {
     135   int loop;
     136   for (loop = 0; loop < MAXTAGLOOP; loop++) {
@@ -188,12 +190,13 @@ Lua表数组部分的大小.
     156   }
     157   luaG_runerror(L, "loop in settable");
     158 }
-    (lvm.c)
+
     
 这里暂时不展开对该函数的解析,仅关注代码行140-146的几行代码:在通过luaH_set查找到旧的数据(如果该key的数据之前存在)/或新增的数据(如果该key的数据之前不存在),无论何种情况,只要返回的TValue指针不为空,那么都可以使用setobj2t来对返回的数据进行实际的修改操作.可见,Lua表的set类API,其内部并不完成实际的数据赋值操作,而是返回该key所对应的数据TValue指针.
 
 回头继续看Lua表中set类API的流程.首先根据前面提到的查找流程来查找该key对应的数据是否已经存在,如果已经存在了就直接返回TValue指针,由外部调用程序具体进行修改操作.否则,就调用newkey函数新分配一个该key对应的数据:
 
+    (ltable.c)
     392 /*
     393 ** inserts a new key into a hash table; first, check whether key's main 
     394 ** position is free. If not, check whether colliding node is in its main 
@@ -232,7 +235,6 @@ Lua表数组部分的大小.
     427   lua_assert(ttisnil(gval(mp)));
     428   return gval(mp);
     429 }
-    (ltable.h)
 
 这个函数的功能,划分为以下几个部分.首先,根据key来查找其所在Hash桶的mainposition,如果返回的结果该Node的值为nil,那么直接将key赋值并且返回Node的TValue指针就可以了;否则说明该mainposition位置已经有其他数据了,需要重新分配空间给这个新的key,然后将这个新的Node串联到对应的Hash桶上.可见这里的整个过程都是在Hash部分进行的,理由是即使key是一个数字,也已经在调用newkey函数之前进行了查找,结果是没有找到,所以这个key都会进入到Hash部分来进行查找.
 
@@ -263,6 +265,7 @@ Lua表数组部分的大小.
     
 计算完毕得到这个数组每个元素的数据之后,也就是得到了落在每个范围内的数据数量,来开始计算怎样才能最大限度的使用这部分空间.这个算法由函数computesize实现:
 
+    (ltable.c)
     189 static int computesizes (int nums[], int *narray) {
     190   int i;
     191   int twotoi;  /* 2^i */
@@ -283,7 +286,6 @@ Lua表数组部分的大小.
     206   lua_assert(*narray/2 <= na && na <= *narray);
     207   return na;
     208 }
-    (ltable.c)
     
 结合前面的测试数据,来"试运行"一下这个函数,此时传入的narray参数是4,也就是目前数组部分的数据数量.
 首先,twotoi为1,i为0,a在循环初始时为0,它表示的时循环到目前为止数据小于2^i的数据数量.

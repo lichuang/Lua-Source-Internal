@@ -5,4 +5,5 @@
 		*	[Lua的表](https://github.com/lichuang/Lua-Source-Internal/blob/master/doc/ch02-Lua%E8%A1%A8.md)
 	*	第三章 Lua虚拟机
 		*	[Lua虚拟机概述](https://github.com/lichuang/Lua-Source-Internal/blob/master/doc/ch03-Lua%E8%99%9A%E6%8B%9F%E6%9C%BA%E6%A6%82%E8%BF%B0.md)
+		*	[Lua栈](https://github.com/lichuang/Lua-Source-Internal/blob/master/doc/ch03-Lua%E6%A0%88.md)
 		

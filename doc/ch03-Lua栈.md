@@ -25,13 +25,29 @@ Lua虚拟机在初始化创建lua_State结构体时,会走到stack_init函数中
  	58 }
  	
 可以看到的是,在这个函数中初始化了两个数组,分别保存Lua栈和CallInfo结构体数组.
-其中,与Lua栈相关的lua_State结构体成员变量有base,stack,top,stack保存的是数组的初始位置,base会根据每次函数调用的情况发生变化,top指针指向的是当前第一个可用的栈位置,每次向栈中增加/删减元素都要对应的增减top指针.
+
+其中,与Lua栈相关的lua_State结构体成员变量有base,stack,top.stack保存的是数组的初始位置,base会根据每次函数调用的情况发生变化,top指针指向的是当前第一个可用的栈位置,每次向栈中增加/删减元素都要对应的增减top指针.注意到这个数组的成员类型是TValue类型的,从前面的讨论已经知道了TValue这个数据类型是Lua中表示所有数据的通用类型.
 
 CallInfo结构体,是每次有函数调用时都会去初始化的一个结构体,它的成员变量中,也有top,base指针,同样的是指向Lua栈的位置,所不同的是,它关注的仅是函数调用时的相关位置.从代码中可以看出,CallInfo数组是有限制的,换言之,在Lua中的嵌套函数调用层次也是有限制,不能超过一定数量.
 
-可以看到,在stack_init函数调用完毕之后,将有如下的结果:
+以上两种数据结构的base指针之间的关联在于,每次将调用一个函数时,会将当前lua_State的base指针调整为该函数相关的CallInfo指针的base指针,而在调用完毕之后将lua_State中的base指针还原回来:
 
-1. 创建了一个大小为ASIC_STACK_SIZE + EXTRA_STACK,数据类型为TValue的数组,这个数组就是Lua栈的所在.其中,lua_State中的成员stack指针指向该数组的首地址,另一个成员top指针指向下一个可用的栈位置
+	(ldo.c)
+	264 int luaD_precall (lua_State *L, StkId func, int nresults) {
+		....
+	290     L->base = ci->base = base;
 
 
+	342 int luaD_poscall (lua_State *L, StkId firstResult) {
+	....
+	351   L->base = (ci - 1)->base;  /* restore base */
+	
+到目前为止,我们暂时不用去管每个CallInfo结构体的base指针是如何计算,在调用一个函数的前后过程中是如何变化的,只需要知道的是,它会影响到lua_State的base指针,简而言之一句话,lua_State的base指针,永远跟着当前所在函数的CallInfo指针的base指针走.
 
+Lua中提供了一系列的API用于Lua栈的操作,大体可以分为以下几类:
+
+1. 向Lua栈中压入数据,这类函数的命名规律是lua_push*,压入相应的数据到Lua栈中之后,都会自动将所操作的lua_State的top指针递增,因为原先的位置已经被新的数据占据了,递增top指针指向Lua栈的下一个可用位置.
+2. 获取Lua栈的元素,这类函数的命名规律是Lua_to*,这类函数根据传入的Lua栈索引,取出相应的数组元素,返回所需要的数据.
+
+
+	

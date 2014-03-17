@@ -78,11 +78,13 @@ base指针是相当重要的一个数据,原因在于它的指向所在是当前
 	
 都是基于lua_State的base指针的位置来读取数据的.
 
+top指针和base指针一样,lua_State结构体中的top指针也是随着CallInfo中top指针一起变化,其相关代码不在这里一一列举出来.
+
 可以总结一下Lua栈的一些特点:
 
 1. Lua栈是一个数组来模拟的数据结构,在每个lua_State创建时就进行了初始化,其中stack指针指向该数组的起始位置,top指针会随着从Lua栈中压入/退出数据而有所增/减,而base指针则随着每次Lua调用函数的CallInfo结构体的base指针做变化.
 2. 每个CallInfo结构体与函数调用相关,虽然它也有自己的base/top指针,但是这两个指针还是指向lua_State的Lua栈.
-3. 在每次函数调用的前后,lua_State的base指针会随着该次函数调用的CallInfo指针的base指针做变化.
+3. 在每次函数调用的前后,lua_State的base/top指针会随着该次函数调用的CallInfo指针的base/top指针做变化.
 4. lua_State的base指针是一个很重要的数据,因为读取Lua栈的数据,以及执行Lua虚拟机的OpCode时拿到的数据,都是以这个指针为基准位置来获取的.
 5. 综合以上3,4两点可知,其实拿到的也就是当前函数调用环境中的数据.
 

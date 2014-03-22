@@ -91,7 +91,7 @@ C语言中,struct/union这样的复合数据类型,是按照这个类型中最�
  	32   TK_NAME, TK_STRING, TK_EOS
  	33 };
  
-需要说明的是,上面luaX_tokens字符串数组中的"<number>", "<name>", "<string>", "<eof>"这几个字符串并不真实做为Lua语言中的保留关键字存在,但是因为有相应的保留字Token类型,所以也就干脆这么定义一个对应的字符串了.
+需要说明的是,上面luaX_tokens字符串数组中的"\<number>", "\<name>", "\<string>", "\<eof>"这几个字符串并不真实做为Lua语言中的保留关键字存在,但是因为有相应的保留字Token类型,所以也就干脆这么定义一个对应的字符串了.
 
  	
  

@@ -60,7 +60,7 @@ C语言中,struct/union这样的复合数据类型,是按照这个类型中最�
  	71   }
  	72 }
  	
- 这里存放的值,是数组luaX_tokens中的索引:
+ 这里存放的值,是数组luaX_tokens中的索引.这样一方面可以迅速定位到是哪个关键字,另方面如果这个reserved字段不为0,则表示该字符串是不可自动回收的,在GC过程中会略过这个字符串的处理:
  
  	(llex.c)
   	36 /* ORDER RESERVED */
@@ -74,7 +74,24 @@ C语言中,struct/union这样的复合数据类型,是按照这个类型中最�
  	44     NULL
  	45 }; 
  	
-一方面可以迅速定位到是哪个关键字,另方面如果这个reserved字段不为0,则表示该字符串是不可自动回收的,在GC过程中会略过这个字符串的处理.
+这里的每个字符串都是与某个保留字Token类型一一对应的:
+
+	20 /*
+ 	21 * WARNING: if you change the order of this enumeration,
+ 	22 * grep "ORDER RESERVED"
+ 	23 */
+ 	24 enum RESERVED {
+ 	25   /* terminal symbols denoted by reserved words */
+ 	26   TK_AND = FIRST_RESERVED, TK_BREAK,
+ 	27   TK_DO, TK_ELSE, TK_ELSEIF, TK_END, TK_FALSE, TK_FOR, TK_FUNCTION,
+ 	28   TK_IF, TK_IN, TK_LOCAL, TK_NIL, TK_NOT, TK_OR, TK_REPEAT,
+ 	29   TK_RETURN, TK_THEN, TK_TRUE, TK_UNTIL, TK_WHILE,
+ 	30   /* other terminal symbols */
+ 	31   TK_CONCAT, TK_DOTS, TK_EQ, TK_GE, TK_LE, TK_NE, TK_NUMBER,
+ 	32   TK_NAME, TK_STRING, TK_EOS
+ 	33 };
+ 
+需要说明的是,上面luaX_tokens字符串数组中的"<number>", "<name>", "<string>", "<eof>"这几个字符串并不真实做为Lua语言中的保留关键字存在,但是因为有相应的保留字Token类型,所以也就干脆这么定义一个对应的字符串了.
 
  	
  

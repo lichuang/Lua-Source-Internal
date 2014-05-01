@@ -3,8 +3,8 @@
 
 简单来说,Lua虚拟机在解释执行一个Lua脚本文件,需要经过以下几个步骤:
 
-1. 初始化Lua虚拟机指针
-2. 读取Lua脚本文件内容
+1. 初始化Lua虚拟机数据结构.
+2. 读取Lua脚本文件内容.
 3. 依次对Lua脚本文件进行词法分析,语法分析,语义分析,最后生成该文件的Lua虚拟机指令.注意以上的过程仅需要一步遍历,这是Lua解释器做的非常好的地方.
 4. 进入Lua虚拟机主循环,将第1步的指令取出来逐个执行.
 
@@ -48,38 +48,48 @@
 
 lua_State可以认为是每一个Lua"线程"所独有的一份数据,后面介绍到Lua协程时会明白这里所谓的"线程"是什么意思.
 
-	(lstate.h)
- 	97 /*  
- 	98 ** `per thread' state
- 	99 */
-	100 struct lua_State {
-	101   CommonHeader;
-	102   lu_byte status;
-	103   StkId top;  /* first free slot in the stack */
-	104   StkId base;  /* base of current function */
-	105   global_State *l_G;
-	106   CallInfo *ci;  /* call info for current function */
-	107   const Instruction *savedpc;  /* `savedpc' of current function */
-	108   StkId stack_last;  /* last free slot in the stack */
-	109   StkId stack;  /* stack base */
-	110   CallInfo *end_ci;  /* points after end of ci array*/
-	111   CallInfo *base_ci;  /* array of CallInfo's */
-	112   int stacksize;
-	113   int size_ci;  /* size of array `base_ci' */
-	114   unsigned short nCcalls;  /* number of nested C calls */
-	115   unsigned short baseCcalls;  /* nested C calls when resuming coroutine */
-	116   lu_byte hookmask;
-	117   lu_byte allowhook; 
-	118   int basehookcount; 
-	119   int hookcount;
-	120   lua_Hook hook;
-	121   TValue l_gt;  /* table of globals */
-	122   TValue env;  /* temporary place for environments */
-	123   GCObject *openupval;  /* list of open upvalues in this stack */
-	124   GCObject *gclist;
-	125   struct lua_longjmp *errorJmp;  /* current error recover point */
-	126   ptrdiff_t errfunc;  /* current error handling function (stack index) */
-	127 };
+将其中各个成员变量分类介绍以含义如下:
+
+### Lua栈相关
+
+* StkId top:当前Lua栈顶,见Lua栈部分讲解
+* StkId base:当前Lua栈底,见Lua栈部分讲解
+* StkId stack_last:指向Lua栈最后位置
+* StkId stack:指向Lua栈起始位置
+* int stacksize:Lua栈大小
+
+### Lua CallInfo数组相关
+前面提过,每次函数调用都对应一个CallInfo结构体,
+
+* CallInfo *ci:指向当前函数的CallInfo数据指针
+* CallInfo *end_ci:指向CallInfo数组的结束位置
+* CallInfo *base_ci:指向CallInfo数组的起始位置
+* int size_ci:CallInfo数组的大小
+
+### hook相关
+
+* lu_byte hookmask:hook mask位,分别有以下几种值:LUA_MASKCALL
+* lu_byte allowhook;
+* int basehookcount;
+* int hookcount;
+* lua_Hook hook;
+  
+### GC相关
+* TValue l_gt
+* GCObject *openupval;  /* list of open upvalues in this stack */
+* GCObject *gclist;
+  
+### 其他
+* CommonHeader:Lua通用数据相关,见第二章
+* lu_byte status:当前状态
+* global_State l_G:指向全局状态指针,见下面关于global_State的讲解
+* const Instruction *savedpc:当前函数的pc指针
+* unsigned short nCcalls:记录C调用层数
+* unsigned short baseCcalls:????
+* struct lua_longjmp *errorJmp;  /* current error recover point */
+* ptrdiff_t errfunc;  /* current error handling function (stack index) */
+
+
 
 global_State是一个进程独有的数据结构,它其中的很多数据会被该进程中所有的lua_State所共享.换言之,一个进程只会有一个global_State,但是却可能有多份lua_State,它们之间是一对多的关系.
 

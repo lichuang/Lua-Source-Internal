@@ -127,14 +127,65 @@ global_State是一个进程独有的数据结构,它其中的很多数据会被�
 ##初始化Lua虚拟机指针
 首先来看第一步,调用lua_open函数创建并且初始化一个Lua虚拟机指针,来看看这里具体做了什么事情.
 
-lua_open实际上是一个宏,其最终会调用函数luaL_newstate来创建一个Lua_State指针.
+lua_open实际上是一个宏,其最终会调用函数luaL_newstate来创建一个Lua_State指针,这里主要完成的是lua_State结构体的初始化及其成员变量以及global_State结构体的初始化工作.
+
 
 ##读取脚本文件
+初始化完毕lua_State结构体之后,下一步就是读取Lua脚本文件,进行词法分析->语法分析->语义分析,最后生成Lua虚拟机指令.这一步的入口是调用luaL_dofile,这也是一个宏:
 
-##词法分析
+	(lauxlib.h)
+	111 #define luaL_dofile(L, fn) \
+	112   (luaL_loadfile(L, fn) || lua_pcall(L, 0, LUA_MULTRET, 0))
 
-##语法分析
+可以看到,这个宏包括了两个函数调用,首先调用luaL_loadfile函数,这个函数主要是对Lua脚本进行上述所说的分析,而只有在这个函数返回0也就是调用成功的时候,才会调用lua_pcall函数,这个函数将会根据上一步成功分析完毕之后生成的Lua虚拟机指令来执行.下面依次来看看这几个过程中涉及到的重要函数和数据结构.
 
-##语义分析
 
-##虚拟机执行指令
+###分析Lua脚本文件
+这一步涵盖了词法分析,语法分析以及语义分析,Lua解释器的一个特点这几个过程是一遍遍历完成的,因此Lua在这方面的效率很高,但是这也给分析这部分代码带来一定难度.
+这部分最终的入口函数是f_parser函数,这里首先不具体深入分析各个分析过程,而是先来具体看看这个函数的代码,明白这个函数执行完毕之后对外部的输出,以及相关的数据结构:
+
+	(ldo.c)
+	490 static void f_parser (lua_State *L, void *ud) {
+	491   int i;
+	492   Proto *tf;
+	493   Closure *cl;
+	494   struct SParser *p = cast(struct SParser *, ud);
+	495   int c = luaZ_lookahead(p->z);
+	496   luaC_checkGC(L);
+	497   tf = ((c == LUA_SIGNATURE[0]) ? luaU_undump : luaY_parser)(L, p->z,
+	498                                                              &p->buff, p->name);
+	499   cl = luaF_newLclosure(L, tf->nups, hvalue(gt(L)));
+	500   cl->l.p = tf;
+	501   for (i = 0; i < tf->nups; i++)  /* initialize eventual upvalues */
+	502     cl->l.upvals[i] = luaF_newupval(L);
+	503   setclvalue(L, L->top, cl);
+	504   incr_top(L);
+	505 }
+	
+首先看到的是SParser结构体,这个结构体只会在分析过程中使用,在它内部的成员变量有已经读取进内存的Lua脚本文件内容,文件名称等数据.这里将调用luaZ_lookahead函数拿到一个int型数据,以此来判断即将进行分析的内容,是已经经过了luac预编译的二进制内容,还是Lua脚本,根据不同的情况调用不同的parser来进行分析.
+
+第一步分析的结果,最终会返回一个Proto结构体指针,这是一个重要的数据结构,来看看其成员变量的具体含义:
+
+* CommonHeader:Lua通用数据相关的成员,前面已经做过讲解.
+* TValue *k: 存放常量的数组.
+* Instruction *code:存放指令的数组.
+* struct Proto **p:如果本函数中还有内部定义的函数,那么这些内部函数相关的Proto指针就放在这个数组里.
+* int *lineinfo:存放对应指令的行号信息,与前面的code数组内的元素一一对应.
+* struct LocVar *locvars:存放函数内局部变量的数组.
+* TString **upvalues:存放UpValue的数组,至于UpValue的含义,后面会做分析.
+* TString  *source:
+* int sizeupvalues:前面upvalues数组的大小.
+* int sizek:k数组的大小.
+* int sizecode:code数组的大小.
+* int sizelineinfo:lineinfo数组的大小.
+* int sizep:p数组的大小.
+* int sizelocvars:localvars数组的大小.
+* int linedefined;
+* int lastlinedefined;
+* GCObject *gclist;
+* lu_byte nups;  /* number of upvalues */
+* lu_byte numparams;
+* lu_byte is_vararg;
+* lu_byte maxstacksize;
+  
+###虚拟机执行指令

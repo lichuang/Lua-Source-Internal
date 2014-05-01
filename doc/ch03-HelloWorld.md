@@ -164,28 +164,98 @@ lua_open实际上是一个宏,其最终会调用函数luaL_newstate来创建一�
 	
 首先看到的是SParser结构体,这个结构体只会在分析过程中使用,在它内部的成员变量有已经读取进内存的Lua脚本文件内容,文件名称等数据.这里将调用luaZ_lookahead函数拿到一个int型数据,以此来判断即将进行分析的内容,是已经经过了luac预编译的二进制内容,还是Lua脚本,根据不同的情况调用不同的parser来进行分析.
 
-第一步分析的结果,最终会返回一个Proto结构体指针,这是一个重要的数据结构,来看看其成员变量的具体含义:
+第一步分析的结果,最终会返回一个Proto结构体指针,这是一个重要的数据结构,它是用来存放分析完一个Lua函数之后,包括指令,参数,Upvalue等信息,来看看其成员变量的具体含义:
 
 * CommonHeader:Lua通用数据相关的成员,前面已经做过讲解.
+
 * TValue *k: 存放常量的数组.
+
 * Instruction *code:存放指令的数组.
+
 * struct Proto **p:如果本函数中还有内部定义的函数,那么这些内部函数相关的Proto指针就放在这个数组里.
+
 * int *lineinfo:存放对应指令的行号信息,与前面的code数组内的元素一一对应.
+
 * struct LocVar *locvars:存放函数内局部变量的数组.
+
 * TString **upvalues:存放UpValue的数组,至于UpValue的含义,后面会做分析.
-* TString  *source:
+
+* TString  *source:Lua脚本文件名.
+
 * int sizeupvalues:前面upvalues数组的大小.
+
 * int sizek:k数组的大小.
+
 * int sizecode:code数组的大小.
+
 * int sizelineinfo:lineinfo数组的大小.
+
 * int sizep:p数组的大小.
+
 * int sizelocvars:localvars数组的大小.
-* int linedefined;
-* int lastlinedefined;
-* GCObject *gclist;
-* lu_byte nups;  /* number of upvalues */
-* lu_byte numparams;
-* lu_byte is_vararg;
-* lu_byte maxstacksize;
+
+* int linedefined:函数body的第一行行号.
+
+* int lastlinedefined:函数body的最后一行.
+
+* GCObject *gclist:gc链表.
+
+* lu_byte nups:upvalue的数量.
+
+* lu_byte numparams:函数参数数量.
+
+* lu_byte is_vararg:有以下几种取值
+
+```	
+	#define VARARG_HASARG 1
+	#define VARARG_ISVARARG 2
+	#define VARARG_NEEDSAR 4
+```
+	
+* lu_byte maxstacksize:函数最大stack大小,由类型是lu_byte可知,最大是255.
   
+由上面的分析可知,当执行Lua解释器对一个Lua脚本文件进行分析之后,最终返回的就是一个Proto结构体指针,但是需要注意的是,前面对Proto结构体的说明中提过,这个结构体与Lua函数一一对应,但是这个说法并不是特别精确,比如我们这里的测试代码打印一个"Hello World"字符串,这就不是一个函数,但是即便如此,分析完这个文件之后也会有一个对应的Proto结构体,因此需要把Lua函数的概念扩大到Lua模块,可以说一个Lua模块也是一个Lua函数,对一个Lua模块分析也是相当于对一个Lua函数进行分析,只不过这个函数没有参数,没有函数名.
+
+继续下面的分析,返回Proto指针之后,将会创建一个Closure结构体:
+
+	(lobject.h)
+	309 typedef union Closure {
+	310   CClosure c;
+	311   LClosure l;
+	312 } Closure;
+
+从它的定义可知,它既可以用来存放C函数相关信息,也可以用来存放Lua函数相关信息.在这里当然是保存的Lua函数信息,主要就是要将返回的Proto信息保存下来,它将在后面Lua虚拟机执行指令时用到.
+
+最后需要注意的是f_parser函数的最后两句代码,它将Closure指针push到了Lua栈中,同时将栈指针加1,由此可知分析完Lua脚本文件产生的Closure指针一定是在Lua栈顶.
+
+到了这里,已经将分析Lua脚本文件的流程和其中重要的数据结构做了概述,也就是luaL_loadfile函数调用的过程,接下来就是分析如何根据这一步的结果来执行Lua虚拟机指令了.
+
+
 ###虚拟机执行指令
+
+调用luaL_loadfile并且成功返回之后,产生的Closure指针被放在了Lua栈顶,这时需要调用lua_pcall(L, 0, LUA_MULTRET, 0)执行Lua指令.这里对lua_pcall函数参数做一些解释,第一个参数自不必解释;第二个参数表示调用这个函数时的参数数量,前面已经提到过,对一个Lua文件进行分析时也可以看做是分析一个Lua函数,只不过其函数参数数量为0,因此此处传递进来的第二个参数是0;第三个参数表示的该函数返回参数的数量,调用完毕之后将根据这个参数对Lua栈进行调整,同样的由于这里是一个Lua文件,所以需要传递的是LUA_MULTRET这个常量,表示多返回值;最后一个参数表示的是出错处理函数在Lua栈中得位置,只有非0值才有意义.
+
+lua_pcall函数最终会进入luaD_call函数来,可是在此之前,首先需要拿到所调用函数相关的Closure指针,这是如何拿到的呢?前面提到过,f_parser返回的Closure指针会放在Lua栈顶,在lua_pcall中有这么一行代码:
+
+	(lapi.c)
+	819   c.func = L->top - (nargs+1);  /* function to be called */
+	
+上面分析lua_pcall函数参数的时候提到过,这里传入的nargs参数是0,因为这里是分析一个Lua文件所以没有函数参数,所以这个操作就拿到了上一步中Closure指针在Lua栈中的地址.同时,从这个操作可以知道,在调用一个Lua函数时,该函数的Lua栈从下往上依次是函数Closure,函数的各个参数,这个问题后面具体分析到Lua函数调用再进行展开分析.
+
+继续看看luaD_call函数:
+
+	(ldo.c)
+	369 void luaD_call (lua_State *L, StkId func, int nResults) {
+	370   if (++L->nCcalls >= LUAI_MAXCCALLS) {
+	371     if (L->nCcalls == LUAI_MAXCCALLS)
+	372       luaG_runerror(L, "C stack overflow");
+	373     else if (L->nCcalls >= (LUAI_MAXCCALLS + (LUAI_MAXCCALLS>>3)))
+	374       luaD_throw(L, LUA_ERRERR);  /* error while handing stack error */
+	375   }  
+	376   if (luaD_precall(L, func, nResults) == PCRLUA)  /* is a Lua function? */
+	377     luaV_execute(L, 1);  /* call it */
+	378   L->nCcalls--;
+	379   luaC_checkGC(L);
+	380 }
+
+这里首先对Lua函数调用层次做判断,接下来调用luaD_precall进行函数调用之前的一些准备工作,这里不展开讨论,简单的说其做的工作是

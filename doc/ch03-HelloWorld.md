@@ -258,4 +258,37 @@ lua_pcall函数最终会进入luaD_call函数来,可是在此之前,首先需要
 	379   luaC_checkGC(L);
 	380 }
 
-这里首先对Lua函数调用层次做判断,接下来调用luaD_precall进行函数调用之前的一些准备工作,这里不展开讨论,简单的说其做的工作是
+这里首先对Lua函数调用层次做判断,接下来调用luaD_precall进行函数调用之前的一些准备工作,这里不展开讨论,简单的说其做的工作有这些:准备好Lua函数栈,创建CallInfo指针并且根据相应信息进行初始化.
+
+到这里,准备工作已经做完了,下面就是调用luaV_execute逐个取出Lua指令来执行:
+
+	(lvm.c)
+	373 void luaV_execute (lua_State *L, int nexeccalls) {
+	374   LClosure *cl;
+	375   StkId base; 
+	376   TValue *k;
+	377   const Instruction *pc;
+	378  reentry:  /* entry point */
+	379   lua_assert(isLua(L->ci));
+	380   pc = L->savedpc;
+	381   cl = &clvalue(L->ci->func)->l;
+	382   base = L->base;
+	383   k = cl->p->k;
+	384   /* main loop of interpreter */
+	385   for (;;) {
+	386     const Instruction i = *pc++;
+			/* 执行Lua指令 */
+	761   } 
+	762 } 
+
+可以看到,luaV_execute函数首先根据CallInfo指针拿到LClosure指针,然后pc指针指向savedpc指针,再逐个从这个pc指针中拿出指令来逐条执行.而这个savedpc指针式在哪里进行初始化的呢,在luaD_precall函数中:
+
+	(ldo.c)
+	293     L->savedpc = p->code;  /* starting point */
+
+上面的p就是分析Lua脚本之后生成的Proto指针,而它的code成员变量前面提到过存放的就是分析后的指令.
+
+以上可以看出,其实Proto结构体才是Lua解释器分析Lua脚本过程中最重要的数据结构,而Closure,CallInfo结构体不过是这个过程为了提供给Lua虚拟机执行指令装载Proto结构体用的中间载体,最终用到的还是Proto结构体中得数据.
+
+以上,将如何加载,分析,以及到最终执行Lua指令中间涉及到的重要函数,数据结构做了一些分析,碍于目前的进度,还没有对一些过程进行深入讨论,但是已经对Lua虚拟机的整体流程有了概观的了解,有了骨架,后面就是根据具体的知识点来进行深入分析了.
+

@@ -7,7 +7,9 @@
 	*	第三章 Lua虚拟机
 		*	[Lua虚拟机概述](https://github.com/lichuang/Lua-Source-Internal/blob/master/doc/ch03-Lua%E8%99%9A%E6%8B%9F%E6%9C%BA%E6%A6%82%E8%BF%B0.md)
 		*	[Lua栈](https://github.com/lichuang/Lua-Source-Internal/blob/master/doc/ch03-Lua%E6%A0%88.md)
-		*	[Lua虚拟机指令格式](https://github.com/lichuang/Lua-Source-Internal/blob/master/doc/ch03-lua%E8%99%9A%E6%8B%9F%E6%9C%BA%E6%8C%87%E4%BB%A4%E6%A0%BC%E5%BC%8F.md)
 		*	[Hello World](https://github.com/lichuang/Lua-Source-Internal/blob/master/doc/ch03-HelloWorld.md)
+		*	[Lua虚拟机指令格式](https://github.com/lichuang/Lua-Source-Internal/blob/master/doc/ch03-lua%E8%99%9A%E6%8B%9F%E6%9C%BA%E6%8C%87%E4%BB%A4%E6%A0%BC%E5%BC%8F.md)
 		
-		
+*	第二部分 Lua虚拟机指令
+	*	第四章 赋值类指令 		
+		* 

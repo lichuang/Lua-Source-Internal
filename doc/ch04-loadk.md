@@ -24,6 +24,66 @@
 
 
 ##查找识别变量
+chunk函数会首先进入statement函数中,statement函数会根据下一个将处理的token类型,来进行下一步的工作,比如如果是关键字"if",将进入ifstat函数中进行处理.但是在这个实例代码中,下一个待处理的token是id为"a"的变量,于是就进入了exprstat函数中,这个函数用于处理表达式赋值或者函数调用这样的操作.
+
+在exprstat函数中,看到了LHS_assign结构体,其定义如下:
+
+	(lparser.c)
+	892 /*
+ 	893 ** structure to chain all variables in the left-hand side of an
+ 	894 ** assignment
+ 	895 */
+ 	896 struct LHS_assign {
+ 	897   struct LHS_assign *prev;
+ 	898   expdesc v;  /* variable (global, local, upvalue, or indexed) */
+ 	899 };
+
+这个结构体是用来表示赋值时等号左边的表达式所用,成员prev指向在同一个表达式中的上一个LHS_assign结构体指针,而v则真正用来存储表达式的信息.
+
+例如这样的赋值:
+
+	a,b = 1, 2
+	
+那么这里假设有LHS_assign数据a_data,b_data分别存储了a,b的信息的话,则其中b_data->prev = a_data.
+
+再来看expdesc结构体的定义:
+
+	(lparser.h)
+	37 typedef struct expdesc {
+ 	38   expkind k;
+ 	39   union {
+ 	40     struct { int info, aux; } s;
+ 	41     lua_Number nval;
+ 	42   } u;
+ 	43   int t;  /* patch list of `exit when true' */
+ 	44   int f;  /* patch list of `exit when false' */
+ 	45 } expdesc;
+
+该结构体中,k表示该表达式的类型,u是一个union为了节省空间之用,nval用来存储数据为数字的情况,自不必多解释,而info和aux根据不同的数据类型各自表示不同的信息,这些信息都可以在expkind enum的注释中看到:
+
+	(lparser.h)
+	19 typedef enum {
+ 	20   VVOID,  /* no value */
+ 	21   VNIL,
+ 	22   VTRUE,
+ 	23   VFALSE,
+ 	24   VK,   /* info = index of constant in `k' */
+ 	25   VKNUM,  /* nval = numerical value */
+ 	26   VLOCAL, /* info = local register */
+ 	27   VUPVAL,       /* info = index of upvalue in `upvalues' */
+ 	28   VGLOBAL,  /* info = index of table; aux = index of global name in `k' */
+ 	29   VINDEXED, /* info = table register; aux = index register (or `k') */ 
+ 	30   VJMP,   /* info = instruction pc */
+ 	31   VRELOCABLE, /* info = instruction pc */
+ 	32   VNONRELOC,  /* info = result register */
+ 	33   VCALL,  /* info = instruction pc */
+ 	34   VVARARG /* info = instruction pc */
+ 	35 } expkind; 
+
+以这里的例子为例,变量a在这里是全局变量,于是它对应的expkind是VGLOBAL.
+
+expdesc结构体中的t和f这两个变量在这里暂时用不到,留待后面继续解释.
+
 查找一个变量,主要的逻辑在函数singlevaraux,来看看它的代码:
 
 	(lparser.c)

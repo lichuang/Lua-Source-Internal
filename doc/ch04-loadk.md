@@ -84,6 +84,8 @@ chunk函数会首先进入statement函数中,statement函数会根据下一个�
 
 expdesc结构体中的t和f这两个变量在这里暂时用不到,留待后面继续解释.
 
+前面解释了LHS_assign和expdesc结构体的含义,现在继续回到exprstat函数中,它会调用primaryexp函数来获取该表达式的expdesc结构体信息,而这会最终走入prefixexp函数中,由于这里要处理的token是a,它是一个TK_NAME类型的token,所以会进入singlevar函数中查找该变量到底是GLOBAL/LOCAL/UPVAL.
+
 查找一个变量,主要的逻辑在函数singlevaraux,来看看它的代码:
 
 	(lparser.c)
@@ -120,5 +122,13 @@ expdesc结构体中的t和f这两个变量在这里暂时用不到,留待后面�
 	3. 当searchvar返回值<0时,说明在这一层没有查找到这个变量,于是使用FuncState结构体的prev指针进入它的父chunk来进行查找,如果查找结果是全局变量就直接返回,否则就是UpValue了,需要对查找一下这个UpValue.indexupvalue这个函数做的事情很简单,就是在该FuncState对应的Proto结构体的Upvalue数组中查找该变量,如果之前没有这个UpValue就新增一个,最后返回这个UpValue在数组中的索引值.
 	
 ##赋值
+exprstat函数在调用primaryexp函数得到变量a的expdesc结构体信息之后,会做一个判断,如果前面得到的expdesc类型是一个函数调用(类型为VCALL)时,将做一些处理,由于不属于这里要讨论的情况不在这次中展开讨论;另一种情况则是一个赋值操作了,将会进入assignment函数中进行处理,在此之前会把expdesc结构体的prev指针赋值为NULL,因为这是这个赋值表达式左边的第一个变量,在它之前没有别的变量.
+
+来看assignment函数的实现.
+
+首先会做一个判断,如果下一个token是",",说明赋值表达式的等号左边有多个变量,继续调用primaryexp函数拿到这个变量的expdesc结构体信息,然后再调用assignment函数.
+
+否则,先读入"="这个token,这时就可以开始处理赋值表达式等号右边的表达式了,这里调用explist1函数同样也是拿到等号右边的expdesc结构体信息.
+
 
 

@@ -12,4 +12,4 @@
 		
 *	第二部分 Lua虚拟机指令
 	*	第四章 赋值类指令 		
-		* 
+		* 	[loadk](https://github.com/lichuang/Lua-Source-Internal/blob/master/doc/ch04-loadk.md)

@@ -126,9 +126,21 @@ exprstat函数在调用primaryexp函数得到变量a的expdesc结构体信息之
 
 来看assignment函数的实现.
 
-首先会做一个判断,如果下一个token是",",说明赋值表达式的等号左边有多个变量,继续调用primaryexp函数拿到这个变量的expdesc结构体信息,然后再调用assignment函数.
+首先会做一个判断,如果下一个token是",",说明赋值表达式的等号左边有多个变量,继续调用primaryexp函数拿到这个变量的expdesc结构体信息,然后再调用assignment函数,只不过此时将nvars参数加1调用--因为此时多了一个参数.可以看到的是,只要有多个参数的赋值操作,那么对assignment函数的递归调用层次和"="左边参数的数量一致.
 
-否则,先读入"="这个token,这时就可以开始处理赋值表达式等号右边的表达式了,这里调用explist1函数同样也是拿到等号右边的expdesc结构体信息.
+否则,先读入"="这个token,这时就可以开始处理赋值表达式等号右边的表达式了,这里调用explist1函数同样也是拿到等号右边的expdesc结构体信息.接着比较"="号左边参数数量(nvars)和"="号右边表达式数量(nexps)是否一致,在不一致的情况下需要做一些调整.
+
+
+#loadnil指令
+分析loadnil指令使用的Lua代码,在前面loadk指令的基础上稍作修改:
+	
+	a, b = 10
+	
+#move指令
+
+#getglobal
+
+
 
 
 

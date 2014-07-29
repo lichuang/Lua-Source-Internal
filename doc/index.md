@@ -12,4 +12,5 @@
 		
 *	第二部分 Lua虚拟机指令
 	*	第四章 赋值类指令 		
-		* 	[loadk](https://github.com/lichuang/Lua-Source-Internal/blob/master/doc/ch04-loadk.md)
+		* 	[简单赋值类指令](https://github.com/lichuang/Lua-Source-Internal/blob/master/doc/ch04-%E7%AE%80%E5%8D%95%E8%B5%8B%E5%80%BC%E7%B1%BB%E6%8C%87%E4%BB%A4.md)
+		*	[表相关操作指令](https://github.com/lichuang/Lua-Source-Internal/blob/master/doc/ch04-%E8%A1%A8%E7%9B%B8%E5%85%B3%E6%93%8D%E4%BD%9C%E6%8C%87%E4%BB%A4.md)

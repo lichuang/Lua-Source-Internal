@@ -134,6 +134,14 @@ Lua的API中提供了luaL_dofile函数,它实际上是个宏,内部首先调用l
 	2) 函数luaD_precall中,将Lua_state的savepc指针指向1)中的Proto结构体的code指针
 	3) 函数luaV_execute中,pc指针指向2)中的savepc指针,紧跟着就是一个大的循环体,依次取出其中的opcode进行执行.
 	
+因此,Lua虚拟机指令执行的两大入口函数,分别是:
+	
+	1) 词法/语法分析阶段的LuaY_parser,Lua为了提高效率,一遍遍历脚本文件不仅完成了词法分析,还完成了语法分析,生成的opcode存放在Proto结构体的code数组中.
+	2) LuaV_execute是虚拟机执行指令阶段的入口函数,它取出第一步生成的Proto结构体中的指令执行.
+	
+	![parser2vm](https://raw.github.com/lichuang/Lua-Source-Internal/master/pic/parser2vm.png "parser2vm")
+	
+	
 		
 
 

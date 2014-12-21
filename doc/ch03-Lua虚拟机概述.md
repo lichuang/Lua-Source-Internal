@@ -143,6 +143,7 @@ Lua的API中提供了luaL_dofile函数,它实际上是个宏,内部首先调用l
 ![parser2vm](https://raw.github.com/lichuang/Lua-Source-Internal/master/pic/parser2vm.png "parser2vm")
 	
 	
+可见,Proto是分析阶段的产物,在执行阶段将使用分析阶段生成的Proto来执行虚拟机指令,在分析阶段会有许多的数据结构参与其中,可它们都是临时的用于分析阶段的,或者说最终是用来辅助生成Proto结构体的.
 		
 
 

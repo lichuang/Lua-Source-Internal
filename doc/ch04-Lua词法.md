@@ -1,5 +1,7 @@
 ##Lua词法
 
+[Lua词法](http://lua.lickert.net/syntax/Lua_syntax.pdf)
+
 	chunk -> { stat [`;'] }
 	block -> chunk
 	

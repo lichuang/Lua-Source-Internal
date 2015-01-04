@@ -9,6 +9,7 @@
 		*	[Lua栈](https://github.com/lichuang/Lua-Source-Internal/blob/master/doc/ch03-Lua%E6%A0%88.md)
 		*	[Hello World](https://github.com/lichuang/Lua-Source-Internal/blob/master/doc/ch03-HelloWorld.md)
 		*	[Lua虚拟机指令格式](https://github.com/lichuang/Lua-Source-Internal/blob/master/doc/ch03-lua%E8%99%9A%E6%8B%9F%E6%9C%BA%E6%8C%87%E4%BB%A4%E6%A0%BC%E5%BC%8F.md)
+		*	[ChunkSpy使用说明](https://github.com/lichuang/Lua-Source-Internal/blob/master/doc/ch03-ChunkSpy%E4%BD%BF%E7%94%A8%E8%AF%B4%E6%98%8E.md)
 		
 *	第二部分 Lua虚拟机指令
 	*	第四章 赋值类指令 	

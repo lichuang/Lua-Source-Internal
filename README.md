@@ -5,6 +5,7 @@
 		*	[Lua字符串](https://github.com/lichuang/Lua-Source-Internal/blob/master/doc/ch02-Lua%E5%AD%97%E7%AC%A6%E4%B8%B2%E7%B1%BB%E5%9E%8B.md)
 		*	[Lua表](https://github.com/lichuang/Lua-Source-Internal/blob/master/doc/ch02-Lua%E8%A1%A8.md)
 	*	第三章 Lua虚拟机
+		*	[Lua虚拟机栈结构及关键数据结构](https://github.com/lichuang/Lua-Source-Internal/blob/master/doc/ch03-Lua%E8%99%9A%E6%8B%9F%E6%9C%BA%E5%8F%8A%E5%85%B3%E9%94%AE%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84.md)
 		*	[Lua虚拟机概述](https://github.com/lichuang/Lua-Source-Internal/blob/master/doc/ch03-Lua%E8%99%9A%E6%8B%9F%E6%9C%BA%E6%A6%82%E8%BF%B0.md)
 		*	[Lua栈](https://github.com/lichuang/Lua-Source-Internal/blob/master/doc/ch03-Lua%E6%A0%88.md)
 		*	[Hello World](https://github.com/lichuang/Lua-Source-Internal/blob/master/doc/ch03-HelloWorld.md)

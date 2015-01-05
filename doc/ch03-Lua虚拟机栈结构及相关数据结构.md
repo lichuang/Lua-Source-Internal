@@ -1,4 +1,4 @@
-##Lua虚拟机栈结构及关键数据结构
+##Lua虚拟机栈结构及相关数据结构
 这节重点来介绍Lua虚拟机的结构,Lua栈的结构,以及相关的数据结构,理解本节的内容是理解后面内容的基础,但是又是与后面的内容相辅相成,所以在看到内容的时候可能需要时不时回顾本节中的内容.
 
 ###Lua的栈结构
@@ -93,15 +93,16 @@ lua_State结构体是使用Lua时接触最多的结构体,它的成员很多,但
 
 调用函数完毕之后,又需要根据前一个函数调用时的环境进行恢复,代码如下:
 
-342 int luaD_poscall (lua_State *L, StkId firstResult) {
-343   StkId res;
-344   int wanted, i;
-345   CallInfo *ci;
-348   ci = L->ci--;
-349   res = ci->func;  /* res == final position of 1st result */
-351   L->base = (ci - 1)->base;  /* restore base */
-358   L->top = res;
-360 }
+	(ldo.c)
+	342 int luaD_poscall (lua_State *L, StkId firstResult) {
+	343   StkId res;
+	344   int wanted, i;
+	345   CallInfo *ci;
+	348   ci = L->ci--;
+	349   res = ci->func;  /* res == final position of 1st result */
+	351   L->base = (ci - 1)->base;  /* restore base */
+	358   L->top = res;
+	360 }
 
 代码同样很简单直白:
 * 首先将当前ci-1,这样就得到调用者的CallInfo指针.

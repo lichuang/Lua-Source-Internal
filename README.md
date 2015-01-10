@@ -20,7 +20,7 @@
 		*	[表相关操作指令](https://github.com/lichuang/Lua-Source-Internal/blob/master/doc/ch04-%E8%A1%A8%E7%9B%B8%E5%85%B3%E6%93%8D%E4%BD%9C%E6%8C%87%E4%BB%A4.md)
 		*	[函数相关类指令](https://github.com/lichuang/Lua-Source-Internal/blob/master/doc/ch04-%E5%87%BD%E6%95%B0%E7%B1%BB%E6%8C%87%E4%BB%A4.md)
 		*	[计算类指令](https://github.com/lichuang/Lua-Source-Internal/blob/master/doc/ch04-%E8%AE%A1%E7%AE%97%E7%B1%BB%E6%8C%87%E4%BB%A4.md)
-		*	[字符串操作类指令]
+		*	[字符串操作类指令](https://github.com/lichuang/Lua-Source-Internal/blob/master/doc/ch04-%E5%AD%97%E7%AC%A6%E4%B8%B2%E6%93%8D%E4%BD%9C%E6%8C%87%E4%BB%A4.md)
 		*	[逻辑判断及跳转类指令]
 		
 *	第三部分 Lua GC

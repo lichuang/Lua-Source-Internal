@@ -21,8 +21,8 @@
 		*	[函数相关类指令](https://github.com/lichuang/Lua-Source-Internal/blob/master/doc/ch04-%E5%87%BD%E6%95%B0%E7%B1%BB%E6%8C%87%E4%BB%A4.md)
 		*	[计算类指令](https://github.com/lichuang/Lua-Source-Internal/blob/master/doc/ch04-%E8%AE%A1%E7%AE%97%E7%B1%BB%E6%8C%87%E4%BB%A4.md)
 		*	[字符串操作类指令](https://github.com/lichuang/Lua-Source-Internal/blob/master/doc/ch04-%E5%AD%97%E7%AC%A6%E4%B8%B2%E6%93%8D%E4%BD%9C%E6%8C%87%E4%BB%A4.md)
-		*	[逻辑类指令]
-		*	[循环类指令]
+		*	[关系逻辑类指令](https://github.com/lichuang/Lua-Source-Internal/blob/master/doc/ch04-%E9%80%BB%E8%BE%91%E5%85%B3%E7%B3%BB%E7%B1%BB%E6%8C%87%E4%BB%A4.md)
+		*	[循环指令]
 		*	[面向对象]
 		*	[闭包]
 		

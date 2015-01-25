@@ -90,6 +90,8 @@ ChunkSpy是一个可以对Lua二进制文件进行反编译拿到对应Opcode的
 	
 	006B                     ** end of chunk **
 
+如果需要更简洁的输出结果,可以加入--brief参数.
+
 需要说明的是,ChunkSpy在2006年之后就不怎么更新,对现在的64位系统支持可能不够好,如果在执行的时候发现提示如下的报错:
 
 	ChunkSpy.lua:1120: mismatch in size_t size (needs 4 but read 8)

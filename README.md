@@ -25,9 +25,8 @@
 	*	[循环类指令](https://github.com/lichuang/Lua-Source-Internal/blob/master/doc/ch04-循环类指令.md)
 		
 * 第五章 表
-	*   [表]
+	*	[元表及面向对象的实现](https://github.com/lichuang/Lua-Source-Internal/blob/master/doc/ch05-%E5%85%83%E8%A1%A8.md)
 	*	[弱表]
-	*	[面向对象]
 		
 * 第六章 环境,模块
 	*	[闭包]

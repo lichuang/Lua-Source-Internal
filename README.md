@@ -26,9 +26,9 @@
 		
 * 第五章 表
 	*	[元表及面向对象的实现](https://github.com/lichuang/Lua-Source-Internal/blob/master/doc/ch05-%E5%85%83%E8%A1%A8.md)
-	*	[弱表]
 		
 * 第六章 环境,模块
+	* 	[几个特殊的表](https://github.com/lichuang/Lua-Source-Internal/blob/master/doc/ch06-%E7%89%B9%E6%AE%8A%E8%A1%A8.md)
 	*	[闭包]
 	*	[registry表]
 		

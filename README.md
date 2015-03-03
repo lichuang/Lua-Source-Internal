@@ -27,10 +27,10 @@
 * 第五章 表
 	*	[元表及面向对象的实现](https://github.com/lichuang/Lua-Source-Internal/blob/master/doc/ch05-%E5%85%83%E8%A1%A8.md)
 		
-* 第六章 环境,模块
+* 第六章 环境与模块
 	* 	[环境相关的变量](https://github.com/lichuang/Lua-Source-Internal/blob/master/doc/ch06-%E7%8E%AF%E5%A2%83%E7%9B%B8%E5%85%B3%E7%9A%84%E5%8F%98%E9%87%8F.md)
+	* 	[模块](https://github.com/lichuang/Lua-Source-Internal/blob/master/doc/ch06-%E6%A8%A1%E5%9D%97.md)
 	*	[闭包]
-	*	[registry表]
 		
 * 第七章 [Lua GC](https://github.com/lichuang/Lua-Source-Internal/blob/master/doc/GC.md)
 

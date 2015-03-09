@@ -30,6 +30,7 @@
 * 第六章 环境与模块
 	* 	[环境相关的变量](https://github.com/lichuang/Lua-Source-Internal/blob/master/doc/ch06-%E7%8E%AF%E5%A2%83%E7%9B%B8%E5%85%B3%E7%9A%84%E5%8F%98%E9%87%8F.md)
 	* 	[模块](https://github.com/lichuang/Lua-Source-Internal/blob/master/doc/ch06-%E6%A8%A1%E5%9D%97.md)
+	* 	[Lua模块热更新原理](https://github.com/lichuang/Lua-Source-Internal/blob/master/doc/ch06-%E7%83%AD%E6%9B%B4%E6%96%B0.md)
 	*	[闭包]
 		
 * 第七章 [Lua GC](https://github.com/lichuang/Lua-Source-Internal/blob/master/doc/GC.md)

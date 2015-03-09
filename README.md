@@ -32,13 +32,12 @@
 	* 	[模块](https://github.com/lichuang/Lua-Source-Internal/blob/master/doc/ch06-%E6%A8%A1%E5%9D%97.md)
 	* 	[Lua模块热更新原理](https://github.com/lichuang/Lua-Source-Internal/blob/master/doc/ch06-%E7%83%AD%E6%9B%B4%E6%96%B0.md)
 	*	[闭包]
-		
-* 第七章 [Lua GC](https://github.com/lichuang/Lua-Source-Internal/blob/master/doc/GC.md)
+	
+* 第七章 Lua调试器
+	
+* 第八章 [Lua GC](https://github.com/lichuang/Lua-Source-Internal/blob/master/doc/GC.md)
 
-* 第八章 杂项
-	* Lua模块
-		* 加载模块
-	* Lua热更新原理
+* 第九章 杂项	
 	* Lua调试器的实现原理
 	* 教科书般的Lua解释器代码
 		* C语言实现的异常处理

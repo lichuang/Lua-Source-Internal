@@ -38,6 +38,5 @@
 * 第八章 [Lua GC](https://github.com/lichuang/Lua-Source-Internal/blob/master/doc/GC.md)
 
 * 第九章 杂项
-	* 教科书般的Lua解释器代码
-		* C语言实现的异常处理
-		* 保护栈的环境
+	* [异常处理](https://github.com/lichuang/Lua-Source-Internal/blob/master/doc/ch09-%E5%BC%82%E5%B8%B8%E5%A4%84%E7%90%86.md)
+	* 协程

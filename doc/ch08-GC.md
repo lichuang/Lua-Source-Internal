@@ -30,6 +30,9 @@
 		重新加入对象链表中等待下一轮的GC检查
 ```
 
+
+![gc_color2](https://raw.github.com/lichuang/Lua-Source-Internal/master/pic/gc_color2.png "gc_color2")
+
 这个算法的缺陷在于,如前面所言,它是"二元"的,每个对象只可能有一种状态,不能有其他中间的状态,那么就要求这个算法每次做GC操作时不可被打断的一次性扫描并清除完毕所有的对象.
 
 来看看这个过程不能被打断的原因.在遍历对象链表标记每个对象颜色的过程中被打断,新增了一个对象,那么应该将这个对象标记为白色还是黑色?如果标记为白色,假如GC已经到了回收阶段,那么这个对象就会在没有遍历其关联对象的情况下被回收;如果标记为黑色,假如GC已经到了回收阶段,那么这个对象在本轮GC中并没有被扫描过就认为是不必回收的.可以看到,在双色标记扫描算法中,标记阶段和回收阶段必须合在一起完成.不能被打断,也就意味着每次GC操作的代价极大.
@@ -438,6 +441,9 @@ Table是Lua中最常见的数据结构,而且一个Table与其关联的Key,Value
 672 }
 ```
 这里只要当前的GC没有在扫描标记阶段,那么就标记这个对象,否则将对象标记为白色,等待下一次的GC.
+有了前面的准备,将这几个过程的操作和颜色的切换结合起来,如下图所示:
+
+![gc_color3](https://raw.github.com/lichuang/Lua-Source-Internal/master/pic/gc_color3.png "gc_color3")
 
 当gray链表中没有对象的时候,还不能马上进入下一个阶段,因为前面还有未处理的数据,这一步需要原子不被中断的完成,其入口是atomic函数.前面提到Lua的增量式GC算法分为多个阶段,可以被中断,然而这一步则例外,这一步将处理弱表链表和前面提到的grayagain链表,是扫描阶段的最后一步,不可被中断:
 
@@ -630,3 +636,9 @@ Table是Lua中最常见的数据结构,而且一个Table与其关联的Key,Value
 GCTM函数的主要逻辑,就是不停的从tmudata链表中取出对象来,调用fasttm,使其调用根据metatable中注册的GC函数来对udata对象数据进行回收.
 
 当所有操作都完成,tmudata链表中不再有对象了,此时一个GC的完整流程就走完了,Lua将GC状态切换到GCSpause,等待下一次的GC操作.
+
+####参考资料
+*	[云风 Lua GC 的源码剖析系列文章](http://blog.codingnow.com/2011/03/lua_gc_1.html)
+*	[原林 探索Lua5.2内部实现](http://blog.csdn.net/yuanlin2008/article/details/8558103)
+* 	[Luajit上关于Lua GC的文章](http://wiki.luajit.org/New-Garbage-Collector)
+

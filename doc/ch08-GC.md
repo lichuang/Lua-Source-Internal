@@ -373,13 +373,57 @@ FIXEDBIT和SFIXEDBIT用于表示该对象不可回收,其中FIXEDBIT仅用于lua
 ```
 在这一步,将扫描所有gray链表中的对象,将它们以及所引用到的对象标记成黑色.需要注意的是,前面的初始化阶段是一次性到位的,而这一步却是可以多次进行,每次扫描之后会返回本次扫描标记的对象大小之和,其入口函数是propagatemark,下一次再次扫描时,只要gray链表中还有待扫描的对象,就继续执行这个函数进行标记.
 
-这个函数与前面的reallymarkobject函数,做的事情其实差不多,都是对一个对象进行标记颜色的动作,区别在于,这里将对象从灰色标记成黑色,表示这个对象及其所引用的对象都已经被标记过,另一个区别在于,前面的流程不会递归对一个对象所引用的对象进行标记,而这里会根据不同的类型调用对应的traverse*函数遍历引用到的对象进行标记.实际工作中,里面的每种类型的对象,处理还不太一样,下面来看看:
+这个函数与前面的reallymarkobject函数,做的事情其实差不多,都是对一个对象进行标记颜色的动作,区别在于,这里将对象从灰色标记成黑色,表示这个对象及其所引用的对象都已经被标记过,另一个区别在于,前面的流程不会递归对一个对象所引用的对象进行标记,而这里会根据不同的类型调用对应的traverse*函数遍历引用到的对象进行标记.实际工作中,里面的每种类型的对象,处理还不太一样,下面来看看.
 
-*	如果是表对象,并且是一个弱表,那么需要将颜色从黑色回退到灰色去,还需要再做扫描.
-*	如果是线程对象,也是从黑色回退到灰色去,同时是加入到grayagain链表中,需要在后面原子性的做扫描标记,这个过程不可被打断.
-*	其他的对象都是正常的扫描标记流程.
+针对Table对象:
 
-当gray链表中的所有对象都被处理完毕,此时还不能立即进入下一个流程进行回收操作,因为在前面的流程中,
+```
+(lgc.c)
+281   switch (o->gch.tt) {
+282     case LUA_TTABLE: {
+283       Table *h = gco2h(o);
+284       g->gray = h->gclist;
+285       if (traversetable(g, h))  /* table is weak? */
+286         black2gray(o);  /* keep it gray */
+287       return sizeof(Table) + sizeof(TValue) * h->sizearray +
+288                              sizeof(Node) * sizenode(h);
+289     }
+```
+
+在traversetable函数中,如果扫描到该表是弱表,那么将会把该对象加入weak链表中,这个链表将在扫描阶段的最后一步进行一次不能被中断的处理,这部分将在后面谈到.同时,如果该表是弱表,那么将该对象回退到灰色状态,重新进行扫描.
+
+针对函数对象,进行处理的函数是traverseclosure,该函数主要是对函数中的所有UpValue进行标记.
+
+```
+(lgc.c)
+290     case LUA_TFUNCTION: {
+291       Closure *cl = gco2cl(o);
+292       g->gray = cl->c.gclist;
+293       traverseclosure(g, cl);
+294       return (cl->c.isC) ? sizeCclosure(cl->c.nupvalues) :
+295                            sizeLclosure(cl->l.nupvalues);
+296     }
+```
+
+针对线程对象,这里的处理是将该对象从gclist中摘下来,放入grayagain链表中,同时将颜色退回到灰色,以备后面的原子阶段再做一次扫描.因为thread上关联的对象是运行堆栈,变化的很频繁,所以这里只是简单的放在grayagain链表中,后面再一次性标记完毕.
+
+```
+(lgc.c)
+297     case LUA_TTHREAD: {
+298       lua_State *th = gco2th(o);
+299       g->gray = th->gclist;
+300       th->gclist = g->grayagain;
+301       g->grayagain = o;
+302       black2gray(o);
+303       traversestack(g, th);
+304       return sizeof(lua_State) + sizeof(TValue) * th->stacksize +
+305                                  sizeof(CallInfo) * th->size_ci;
+306     }
+```
+
+最后一种特殊类型是proto类型对象,将会调用traverseproto函数mark一个Proto的文件名,字符串,upvalue,局部变量等所有被这个Proto引用的对象.
+
+其余的类型,就是简单的调用gray2black将颜色从灰色置为黑色就好了.
 
 到了这里可以谈谈barrier操作了.
 

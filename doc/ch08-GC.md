@@ -165,7 +165,7 @@ FINALIZEDBIT用于标记没有被引用需要回收的udata,udata的处理与其
 
 KEYWEAKBIT和VALUEWEAKBIT用于标记弱表中的key/value的的weak属性.
 
-FIXEDBIT和SFIXEDBIT用于表示该对象不可回收,其中FIXEDBIT仅用于lua_State对象自身的标记,而SFIXEDBIT标记了一系列Lua语法中的关键字对应的字符串为不可回收字符串,具体可以看看luaX_init函数的实现.
+FIXEDBIT和SFIXEDBIT用于表示该对象不可回收,其中FIXEDBIT仅用于lua\_State对象自身的标记,而SFIXEDBIT标记了一系列Lua语法中的关键字对应的字符串为不可回收字符串,具体可以看看luaX\_init函数的实现.
 
 来看看lua虚拟机的数据结构与GC相关的数据对象.
 
@@ -271,7 +271,7 @@ FIXEDBIT和SFIXEDBIT用于表示该对象不可回收,其中FIXEDBIT仅用于lua
 110 }
 ```
 
-可以看到的是,任何创建的udata,最后都会放在mainthread之后,其他的与一般的数据并无差别.之所以这么做,是因为udata是用户注册的C数据,可能会在回收时调用用户注册的函数,那么就需要把这些udata统一放在一个地方来进行处理,这样做是为了代码编写的方便,至于如何针对udata进行处理,在后面的luaC_separateudata中将会谈到.
+任何创建的udata,最后都会放在mainthread之后,其他的与一般的数据并无差别.之所以这么做,是因为udata是用户注册的C数据,可能会在回收时调用用户注册的函数,那么就需要把这些udata统一放在一个地方来进行处理,这样做是为了代码编写的方便,至于如何针对udata进行处理,在后面的luaC_separateudata中将会谈到.
 
 #### 初始化阶段
 ``` 

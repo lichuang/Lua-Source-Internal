@@ -41,7 +41,7 @@ Lua5.1采用了在该算法基础上改进的"Tri-Color Incremental Mark & Sweep
 *  Black:表示当前对象为已扫描状态,用于表示对象已经被GC访问过,并且该对象引用的其他对象也已经被访问过了.
 
 
-下面给出LuaGC的伪代码:
+下面给出Lua GC的伪代码:
 
 ``` 
 每个新创建的对象颜色为白色
@@ -66,11 +66,137 @@ Lua5.1采用了在该算法基础上改进的"Tri-Color Incremental Mark & Sweep
 
 可以看到,引入了新的灰色节点的概念之后,算法不再要求一次性完整地执行完毕,而是可以把已经扫描但是其引用的对象还未被扫描的对象置为灰色,第二部的标记阶段中,只要灰色节点集合中还有元素在,那么这个标记过程就会继续下去,即使在中间该阶段被打断转而执行其它的操作了也没有关系.
 
-然而,即使是这样,却还有另一个没有解决的问题.从上面的算法可以看出,没有被引用的对象其颜色在一个扫描过程中始终保持不变为白色,那么假如一个对象在一个GC过程的标记阶段之后被创建,根据前面对颜色的描述,它应该是白色的,这样在紧跟着的回收阶段,这个对象就会在没有被扫描标记的情况下被认为是没有被引用的对象而删除.因此,Lua除了前面的三色概念之外,又细分出来一个"双白色"的概念.简单的说,Lua中的白色分为"当前白色(currentwhite)"和"非当前白色(otherwhite)",这两种白色的状态交替使用,第N次GC使用的是第一种白色,那么下一次就是另外一种,以此类推,代码在回收时候会做判断,如果某个对象的白色不是此次GC回收使用的白色状态将不会被认为是没有被引用的对象而回收,这样的白色对象将留在下一次GC中进行扫描,因为在下一次GC中上一次幸免的白色将成为这次的回收颜色.
+然而,即使是这样,却仍然有另一个没有解决的问题.从上面的算法可以看出,没有被引用的对象其颜色在一个扫描过程中始终保持不变为白色,那么假如一个对象在一个GC过程的标记阶段之后被创建,根据前面对颜色的描述,它应该是白色的,这样在紧跟着的回收阶段,这个对象就会在没有被扫描标记的情况下被认为是没有被引用的对象而删除.因此,Lua除了前面的三色概念之外,又细分出来一个"双白色"的概念.简单的说,Lua中的白色分为"当前白色(currentwhite)"和"非当前白色(otherwhite)",这两种白色的状态交替使用,第N次GC使用的是第一种白色,那么下一次就是另外一种,以此类推,代码在回收时候会做判断,如果某个对象的白色不是此次GC回收使用的白色状态将不会被认为是没有被引用的对象而回收,这样的白色对象将留在下一次GC中进行扫描,因为在下一次GC中上一次幸免的白色将成为这次的回收颜色.
 
 ### 数据结构
 来看Lua代码中针对GC的数据结构.
 
+```
+(lobject.h) 
+56 /*
+57 ** Union of all Lua values
+58 */
+59 typedef union {
+60   GCObject *gc;
+61   void *p;
+62   lua_Number n;
+63   int b;
+64 } Value;
+
+133 /*
+134 ** Union of all collectable objects
+135 */
+136 union GCObject {
+137   GCheader gch;
+138   union TString ts;
+139   union Udata u;
+140   union Closure cl;
+141   struct Table h;
+142   struct Proto p;
+143   struct UpVal uv;
+144   struct lua_State th;  /* thread */
+145 };
+```
+可以看到,所有Lua中的对象都有一个GCheader的公共头部,这里面包含的数据有:
+
+```
+(lobject.h)
+39 /*
+40 ** Common Header for all collectable objects (in macro form, to be
+41 ** included in other objects)
+42 */
+43 #define CommonHeader  GCObject *next; lu_byte tt; lu_byte marked
+44
+45
+46 /*
+47 ** Common header in struct form
+48 */
+49 typedef struct GCheader {
+50   CommonHeader;
+51 } GCheader;
+```
+
+其中有三个元素:
+
+*	next: GCObject链表指针,这个指针将所有GC对象都链接在一起形成链表.
+*	tt:数据类型.
+* 	marked:标记字段,用于存储前面提到的几种颜色.其具体值定义如下:
+
+```
+(lgc.h)
+ 41 /*
+ 42 ** Layout for bit use in `marked' field:
+ 43 ** bit 0 - object is white (type 0)
+ 44 ** bit 1 - object is white (type 1)
+ 45 ** bit 2 - object is black
+ 46 ** bit 3 - for userdata: has been finalized
+ 47 ** bit 3 - for tables: has weak keys
+ 48 ** bit 4 - for tables: has weak values
+ 49 ** bit 5 - object is fixed (should not be collected)
+ 50 ** bit 6 - object is "super" fixed (only the main thread)
+ 51 */
+ 52
+ 53
+ 54 #define WHITE0BIT 0
+ 55 #define WHITE1BIT 1
+ 56 #define BLACKBIT  2
+ 57 #define FINALIZEDBIT  3
+ 58 #define KEYWEAKBIT  3
+ 59 #define VALUEWEAKBIT  4
+ 60 #define FIXEDBIT  5
+ 61 #define SFIXEDBIT 6
+ 62 #define WHITEBITS bit2mask(WHITE0BIT, WHITE1BIT)
+```
+
+在这里, WHITE0BIT和WHITE1BIT就是前面提到的两种白色状态,可以称为1型白色和0型白色,Lua GC过程中的白色值就在这两个中不断的进行切换.当前的白色见global_State中的currentwhite,而otherwhite宏用于表示非当前GC将要回收的白色类型,切换白色使用changewhite宏,要得到当前的白色状态,则使用的是luaC_white宏,下面将与白色相关的一系列宏操作列举如下:
+
+```
+65 #define iswhite(x)      test2bits((x)->gch.marked, WHITE0BIT, WHITE1BIT)
+69 #define otherwhite(g) (g->currentwhite ^ WHITEBITS)
+70 #define isdead(g,v) ((v)->gch.marked & otherwhite(g) & WHITEBITS)
+72 #define changewhite(x)  ((x)->gch.marked ^= WHITEBITS)
+77 #define luaC_white(g) cast(lu_byte, (g)->currentwhite & WHITEBITS)
+```
+
+FINALIZEDBIT用于标记没有被引用需要回收的udata,udata的处理与其他数据类型不同,由于它是用户传入的数据,它的回收可能会调用用户注册的GC函数,因此统一来进行处理,后面将会谈到udata的数据处理.
+
+KEYWEAKBIT和VALUEWEAKBIT用于标记弱表中的key/value的的weak属性.
+
+FIXEDBIT和SFIXEDBIT用于表示该对象不可回收,其中FIXEDBIT仅用于lua_State对象自身的标记,而SFIXEDBIT标记了一系列Lua语法中的关键字对应的字符串为不可回收字符串,具体可以看看luaX_init函数的实现.
+
+来看看lua虚拟机的数据结构与GC相关的数据对象.
+
+```
+ 68 typedef struct global_State {
+ 69   stringtable strt;  /* hash table for strings */
+ 70   lua_Alloc frealloc;  /* function to reallocate memory */
+ 71   void *ud;         /* auxiliary data to `frealloc' */
+ 72   lu_byte currentwhite;
+ 73   lu_byte gcstate;  /* state of garbage collector */
+ 74   int sweepstrgc;  /* position of sweep in `strt' */
+ 75   GCObject *rootgc;  /* list of all collectable objects */
+ 76   GCObject **sweepgc;  /* position of sweep in `rootgc' */
+ 77   GCObject *gray;  /* list of gray objects */
+ 78   GCObject *grayagain;  /* list of objects to be traversed atomically */
+ 79   GCObject *weak;  /* list of weak tables (to be cleared) */
+ 80   GCObject *tmudata;  /* last element of list of userdata to be GC */
+ 81   Mbuffer buff;  /* temporary buffer for string concatentation */
+ 82   lu_mem GCthreshold;
+ 83   lu_mem totalbytes;  /* number of bytes currently allocated */
+ 84   lu_mem estimate;  /* an estimate of number of bytes actually in use */
+ 85   lu_mem gcdept;  /* how much GC is `behind schedule' */
+ 86   int gcpause;  /* size of pause between successive GCs */
+ 87   int gcstepmul;  /* GC `granularity' */
+ 88   lua_CFunction panic;  /* to be called in unprotected errors */
+ 89   TValue l_registry;
+ 90   struct lua_State *mainthread;
+ 91   UpVal uvhead;  /* head of double-linked list of all open upvalues */
+ 92   struct Table *mt[NUM_TAGS];  /* metatables for basic types */
+ 93   TString *tmname[TM_N];  /* array with tag-method names */
+ 94 } global_State;
+```
+ 
+ 
 ### 具体流程
 
 #### 新创建对象
@@ -91,11 +217,10 @@ Lua5.1采用了在该算法基础上改进的"Tri-Color Incremental Mark & Sweep
 
 这个函数做的事情很简单:
 
-``` 
-1.将对象挂载到rootgc链表上.
-2.设置颜色为白色.
-3.设置数据的类型.
-```
+*	将对象挂载到rootgc链表上.
+*	设置颜色为白色.
+*	设置数据的类型.
+
 但是Upvalue和udata类型的数据,创建过程有些不一样,首先来看Upvalue,新建一个Upvalue调用的是luaC_linkupval函数:
 
 ``` 
@@ -117,7 +242,12 @@ Lua5.1采用了在该算法基础上改进的"Tri-Color Incremental Mark & Sweep
 709   }
 710 }
 ```
-这里的第一个疑问是,前面其它的数据类型,在最开始的时候,都是将颜色设置为白色的,而针对UpValue,则是根据颜色是不是灰色来做后面的一些操作.原因在于,UpValue在整个Lua虚拟机中,是存放在全局管理的数据结构中的,其中处于open状态的存放在lua_State结构体的openupval链表中:
+这里的第一个疑问是,前面其它的数据类型,在最开始的时候,都是将颜色设置为白色的,而针对UpValue,则是根据颜色是不是灰色来做后面的一些操作.原因在于,UpValue是针对医用对象的间接引用,所以它的处理当对象颜色是灰色的情况下区分了两种情况:
+
+*	如果当前在扫描阶段,那么将对象从灰色变成黑色,需要注意到这一步需要加barrier,至于什么是barrier后面会谈到.
+* 	否则如果不是在扫描阶段,都置为白色.705行这里的注释写到这一步操作是将其进行回收,其实这个表达并不完全准确,这里的置为白色我的理解和创建其他类型数据的函数luaC_link一样,都是一个创建对象的正常流程.
+
+再来看udata数据的创建:
 
 ``` 
 (lstring.c)
@@ -137,6 +267,9 @@ Lua5.1采用了在该算法基础上改进的"Tri-Color Incremental Mark & Sweep
 109   return u;
 110 }
 ```
+
+可以看到的是,任何创建的udata,最后都会放在mainthread之后,其他的与一般的数据并无差别.之所以这么做,是因为udata是用户注册的C数据,可能会在回收时调用用户注册的函数,那么就需要把这些udata统一放在一个地方来进行处理,这样做是为了代码编写的方便,至于如何针对udata进行处理,在后面的luaC_separateudata中将会谈到.
+
 #### 初始化阶段
 ``` 
 (lgc.c)
@@ -217,11 +350,9 @@ Lua5.1采用了在该算法基础上改进的"Tri-Color Incremental Mark & Sweep
 
 可以看到,绝大部分类型的对象,在这个函数中的操作只是简单的将其改变颜色为灰色加入到gray链表中.但是有几个类型是做区别处理的.
 
-```
-1.对于字符串类型数据,由于这种类型没有引用其他的数据,所以略过将其改变颜色灰色的流程,后面只要不是黑色的字符串对象直接进行回收.
-2.对于udata类型数据,因为这种类型永远也不会引用其它的数据,所以这里也是一步到位直接标记为黑色,另外对于这种类型,还需要标记对应的metatable和env表.
-3.对于Upvalue类型数据,如果当前是close状态的话,那么该UpValue已经没有与其它数据的引用关系了,可以直接标记为黑色.至于open状态的Upvalue,由于open状态的Upvalue,其引用状态可能会发生频繁的变动,所以留待后面的remarkupvals函数中进行原子性的标记,这在后面会做解释.
-```
+*	对于字符串类型数据,由于这种类型没有引用其他的数据,所以略过将其改变颜色灰色的流程,后面只要不是黑色的字符串对象直接进行回收.
+*	对于udata类型数据,因为这种类型永远也不会引用其它的数据,所以这里也是一步到位直接标记为黑色,另外对于这种类型,还需要标记对应的metatable和env表.
+*	对于Upvalue类型数据,如果当前是close状态的话,那么该UpValue已经没有与其它数据的引用关系了,可以直接标记为黑色.至于open状态的Upvalue,由于open状态的Upvalue,其引用状态可能会发生频繁的变动,所以留待后面的remarkupvals函数中进行原子性的标记,这在后面会做解释.
 
 另外需要注意的是,这里并没有针对这个对象所引用的对象递归调用reallymarkobject函数进行递归调用,比如Table类型的对象就没有遍历它的Key和Value数据进行mark,而在udata中要标记metable和env表,是因为除了这里之外并没有直接能访问到它的其它地方了.并没有递归去标记引用对象的原因,是想让这个标记过程尽量的快.
 
@@ -241,11 +372,9 @@ Lua5.1采用了在该算法基础上改进的"Tri-Color Incremental Mark & Sweep
 
 这个函数与前面的reallymarkobject函数,做的事情其实差不多,都是对一个对象进行标记颜色的动作,区别在于,这里将对象从灰色标记成黑色,表示这个对象及其所引用的对象都已经被标记过,另一个区别在于,前面的流程不会递归对一个对象所引用的对象进行标记,而这里会根据不同的类型调用对应的traverse*函数遍历引用到的对象进行标记.实际工作中,里面的每种类型的对象,处理还不太一样,下面来看看:
 
-``` 
-1.如果是表对象,并且是一个弱表,那么需要将颜色从黑色回退到灰色去,还需要再做扫描.
-2.如果是线程对象,也是从黑色回退到灰色去,同时是加入到grayagain链表中,需要在后面原子性的做扫描标记,这个过程不可被打断.
-3.其他的对象都是正常的扫描标记流程.
-```
+*	如果是表对象,并且是一个弱表,那么需要将颜色从黑色回退到灰色去,还需要再做扫描.
+*	如果是线程对象,也是从黑色回退到灰色去,同时是加入到grayagain链表中,需要在后面原子性的做扫描标记,这个过程不可被打断.
+*	其他的对象都是正常的扫描标记流程.
 
 当gray链表中的所有对象都被处理完毕,此时还不能立即进入下一个流程进行回收操作,因为在前面的流程中,
 
@@ -253,10 +382,9 @@ Lua5.1采用了在该算法基础上改进的"Tri-Color Incremental Mark & Sweep
 
 从前面的描述可以知道,分步增量式的扫描标记算法,由于中间可以被打断执行其他操作,那么就会出现新增加的对象与已经被扫描过的对象之间会有引用关系的变化,而算法中需要保证不会出现有黑色的对象引用的对象中有白色对象的情况,于是需要两种不同的处理:
 
-``` 
-1.标记过程向前走一步,这种情况指的是,如果有一个新创建的对象,其颜色是白色,而它被一个黑色对象引用了,那么将这个对象的颜色从白色变成灰色,也就是在这个GC过程中的进度向前走了一步.
-2.标记过程向后走一步,与前面的情况一样,但是此时是将黑色的对象回退到灰色,也就是这个原先已经被标记为黑色的对象需要重新被扫描,这相当于在GC过程中向后走了一步.
-```
+*	标记过程向前走一步,这种情况指的是,如果有一个新创建的对象,其颜色是白色,而它被一个黑色对象引用了,那么将这个对象的颜色从白色变成灰色,也就是在这个GC过程中的进度向前走了一步.
+*	标记过程向后走一步,与前面的情况一样,但是此时是将黑色的对象回退到灰色,也就是这个原先已经被标记为黑色的对象需要重新被扫描,这相当于在GC过程中向后走了一步.
+
 在代码中,最终调用luaC\_barrierf函数的,都是向前走的操作;反之,调用luaC\_barrierback的操作则是向后走的操作:
 
 ``` 
@@ -291,6 +419,8 @@ Table是Lua中最常见的数据结构,而且一个Table与其关联的Key,Value
 682   g->grayagain = o;
 683 }
 ```
+可以看到的是,需要进行barrierback操作的对象,最后并没有如新建对象那样加入gray链表中,而是加入grayagain列表中,避免一个对象频繁的被回退-扫描-回退-扫描过程,既然需要重新被扫描,那么就一次性放在grayagain链表中就可以了,至于如何回收grayagain链表中的数据,下面将进行说明.
+
 而相对的,向前的操作就简单多了:
 
 ``` 
@@ -309,7 +439,7 @@ Table是Lua中最常见的数据结构,而且一个Table与其关联的Key,Value
 ```
 这里只要当前的GC没有在扫描标记阶段,那么就标记这个对象,否则将对象标记为白色,等待下一次的GC.
 
-当gray链表中没有对象的时候,还不能马上进入下一个阶段,因为前面还有未处理的数据,这一步需要原子不被中断的完成,其入口是atomic函数:
+当gray链表中没有对象的时候,还不能马上进入下一个阶段,因为前面还有未处理的数据,这一步需要原子不被中断的完成,其入口是atomic函数.前面提到Lua的增量式GC算法分为多个阶段,可以被中断,然而这一步则例外,这一步将处理弱表链表和前面提到的grayagain链表,是扫描阶段的最后一步,不可被中断:
 
 ``` 
 (lgc.c)
@@ -344,19 +474,16 @@ Table是Lua中最常见的数据结构,而且一个Table与其关联的Key,Value
 553 }
 ```
 
-​	
-
 这个函数中,分别做了以下的几个操作:
+ 
+*	调用remarkupvals函数去标记open状态的Upvalue,这一步完毕之后gray链表又会有新的对象,于是需要调用propagateall再次将gray链表中的对象标记以下.
+* 	修改gray链表指针指向管理弱表的weak指针,同时标记当前的Lua_State指针,以及基本的meta表.
+*	修改gray链表指针指向grayagain指针,同样是调用propagateall函数进行遍历扫描操作.
+* 	调用luaC_separateudata针对udata进行处理.
+* 	注意在548行这里还讲当前白色类型切换到了下一次GC操作的白色类型.
+*	修改状态到下个回收阶段.
 
-``` 
-1. 调用remarkupvals函数去标记open状态的Upvalue,这一步完毕之后gray链表又会有新的对象,于是需要调用propagateall再次将gray链表中的对象标记以下.
-2.修改gray链表指针指向管理弱表的weak指针,同时标记当前的Lua_State指针,以及基本的meta表.
-3.修改gray链表指针指向grayagain指针,同样是调用propagateall函数进行遍历扫描操作.
-4.
-```
-
-​	
-
+到了这一步,就可以来谈谈前面提到的对udata进行处理的luaC_separateudata函数:
 ``` 
 (lgc.c)
 128 size_t luaC_separateudata (lua_State *L, int all) {
@@ -388,10 +515,15 @@ Table是Lua中最常见的数据结构,而且一个Table与其关联的Key,Value
 154   return deadmem;
 155 }
 ```
+它主要对mainthread之后的对象进行遍历(前面谈到了将udata放在mainthread之后,是为了统一放在一个地方这样代码好处理),然后进行如下的操作:
 
+*	如果该对象不需要回收,循环就继续处理下一个对象.
+* 	否则先看该对象有没有注册GC函数,如果没有那么就直接标记该对象的状态是finalized.
+*  否则除了标记该对象为finalized之外,还将这些对象加入tmudata链表中,同样的将udata放在一个链表中也是为了统一来处理,后面将会提到finalized状态的处理.
 ​	
 
 #### 回收阶段
+回收阶段又分了两步,一个是针对字符串类型的回收,一个则是针对其他类型对象的回收:
 
 ``` 
 (lgc.c)
@@ -416,10 +548,7 @@ Table是Lua中最常见的数据结构,而且一个Table与其关联的Key,Value
 590       return GCSWEEPMAX*GCSWEEPCOST;
 591     }
 ```
-
-​	
-
-可以看到,回收阶段分为两种情况的处理,首先会回收字符串类型的数据,再次会去回收其他类型的数据.
+针对字符串类型数据,每次调用sweepwholelist函数回收字符串hash桶数组中的一个字符串链表,当所有字符串hash桶数据全部遍历完毕,切换到下一个状态GCSsweep进行其他数据的回收;针对其他数据的回收,则是调用sweeplist函数进行.
 
 ``` 
 (lgc.c)
@@ -446,6 +575,7 @@ Table是Lua中最常见的数据结构,而且一个Table与其关联的Key,Value
 427   return p;
 428 }
 ```
+可以看到,在sweeplist中,首先拿到otherwhite,这个表示本次GC操作不可以被回收的白色类型,后面就是依次遍历链表中的数据,判断每个对象的白色是否满足被回收的颜色条件.
 
 #### 结束阶段
 
@@ -465,3 +595,38 @@ Table是Lua中最常见的数据结构,而且一个Table与其关联的Key,Value
 603       }
 604     }
 ```
+
+到了结束阶段,这一个阶段其实也是可以中断的,只要tmudata链表中还有对象,那么就一直调用GCTM函数来进行处理,前面提到了tmudata链表是用来存放已经扫描之后待调用注册的GC函数的udata对象:
+
+```
+445 static void GCTM (lua_State *L) {
+446   global_State *g = G(L);
+447   GCObject *o = g->tmudata->gch.next;  /* get first element */
+448   Udata *udata = rawgco2u(o);
+449   const TValue *tm;
+450   /* remove udata from `tmudata' */
+451   if (o == g->tmudata)  /* last element? */
+452     g->tmudata = NULL;
+453   else
+454     g->tmudata->gch.next = udata->uv.next;
+455   udata->uv.next = g->mainthread->next;  /* return it to `root' list */
+456   g->mainthread->next = o;
+457   makewhite(g, o);
+458   tm = fasttm(L, udata->uv.metatable, TM_GC);
+459   if (tm != NULL) {
+460     lu_byte oldah = L->allowhook;
+461     lu_mem oldt = g->GCthreshold;
+462     L->allowhook = 0;  /* stop debug hooks during GC tag method */
+463     g->GCthreshold = 2*g->totalbytes;  /* avoid GC steps */
+464     setobj2s(L, L->top, tm);
+465     setuvalue(L, L->top+1, udata);
+466     L->top += 2;
+467     luaD_call(L, L->top - 2, 0);
+468     L->allowhook = oldah;  /* restore hooks */
+469     g->GCthreshold = oldt;  /* restore threshold */
+470   }
+471 }
+```
+GCTM函数的主要逻辑,就是不停的从tmudata链表中取出对象来,调用fasttm,使其调用根据metatable中注册的GC函数来对udata对象数据进行回收.
+
+当所有操作都完成,tmudata链表中不再有对象了,此时一个GC的完整流程就走完了,Lua将GC状态切换到GCSpause,等待下一次的GC操作.

@@ -69,7 +69,7 @@ lua_State结构体是使用Lua时接触最多的结构体,它的成员很多,但
  * ci的fun成员指向lua_State的top指针,在赋值完毕之后向函数栈中压入了一个nil值,也就是说,第一个CallInfo数组的元素,其func位置存放的是一个nil值.
  * 最后,ci的top指针指向lua_State的top指针之后的LUA_MINSTACK位置.
  
- 有了这些准备,首先来看看在调用函数之前函数栈环境相关的操作,这里只列举出关键的代码:
+有了这些准备,首先来看看在调用函数之前函数栈环境相关的操作,这里只列举出关键的代码:
  
  	(ldo.c)
  	264 int luaD_precall (lua_State *L, StkId func, int nresults) {

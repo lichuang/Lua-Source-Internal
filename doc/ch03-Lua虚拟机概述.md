@@ -5,6 +5,13 @@
 每一门脚本语言都会有自己定义的opcode(operation code,中文一般翻译为”操作码”),可以理解为这门程序自己定义的”汇编语言”.一般的编译型语言,比如C等,经过编译器编译之后生成的都是与当前硬件环境相匹配的汇编代码;而脚本型的语言,经过前端的处理之后,生成的就是opcode,再将该opcode放在这门语言的虚拟机中逐个执行.
 可见,虚拟机是个中间层,它处于脚本语言前端和硬件之间的一个程序(有些虚拟机是作为单独的程序独立存在,而Lua由于是一门嵌入式的语言是附着在宿主环境中的).
 
+可见,一个虚拟机,其核心问题有两个:
+
+1.	如何分析源代码文件生成Opcode,然后又如何执行Opcode指令.
+2.	另一个问题是保存整个执行环境是如何做的.
+
+这一节,先讲解Lua虚拟机如何解决第一个核心问题的大体流程,第二个问题留待下一节讲解.
+
 ##Lua虚拟机工作流程
 有了以上的概念,下面来简单讲解在Lua中,一份Lua代码从词法分析到语法分析再到生成opcode,最后进入虚拟机执行的大体流程.
 
@@ -40,7 +47,7 @@ Lua的API中提供了luaL\_dofile函数,它实际上是个宏,内部首先调用
 505 } 	
 ```
 	
-如果暂时不深究词法分析的细节,仅看这个函数对外的输出,那么可以看到:在完成词法分析之后,返回了Proto类型的指针tf,然后将其绑定在新创建的Closure指针上,初始化UpValue,最后压入Lua栈中.
+这里暂时不深究词法分析的细节,仅看这个函数对外的输出,那么可以看到:在完成词法分析之后,返回了Proto类型的指针tf,然后将其绑定在新创建的Closure指针上,初始化UpValue,最后压入Lua栈中.
 
 不难想像,Lua词法分析之后产生的opcode等相关数据都在这个Proto类型的结构体中.
 
@@ -73,21 +80,50 @@ Lua的API中提供了luaL\_dofile函数,它实际上是个宏,内部首先调用
   
 lua\_pcall函数中,首先获取需要调用的函数指针:
  
-```
-  	819   c.func = L->top - (nargs+1);  /* function to be called */
+```C
+819   c.func = L->top - (nargs+1);  /* function to be called */
 ```
 
-这里的nargs是由函数参数传入的,luaL\_dofile中调用lua\_pcall时这里传入的参数是0,换句话说,这里得到的函数对象指针就是在f\_parser函数中最后放入Lua栈的指针.
+这里的nargs是由函数参数传入的,luaL\_dofile中调用lua\_pcall时这里传入的参数是0,换句话说,这里得到的函数对象指针就是前面在f\_parser函数中最后两句代码中放入Lua栈的指针:
+
+```C
+503   setclvalue(L, L->top, cl);
+504   incr_top(L);
+```
 
 继续往下执行,走到luaD\_call函数,该函数中的这一段代码:
 
 ```C
 (ldo.c)
-	376   if (luaD_precall(L, func, nResults) == PCRLUA)  /* is a Lua function? */
-	377     luaV_execute(L, 1);  /* call it */
+376   if (luaD_precall(L, func, nResults) == PCRLUA)  /* is a Lua function? */
+377     luaV_execute(L, 1);  /* call it */
 ```
 
-首先调用luaD\_precall函数进行执行前的准备工作,这个函数在前面做过分析,然后会进入luaV\_execute函数,这里是虚拟机执行代码的主函数:
+首先调用luaD\_precall函数进行执行前的准备工作:
+
+```
+(ldo.c)
+264 int luaD_precall (lua_State *L, StkId func, int nresults) {
+272   if (!cl->isC) {  /* Lua function? prepare its call */
+288     ci = inc_ci(L);  /* now `enter' new function */
+289     ci->func = func;
+290     L->base = ci->base = base;
+291     ci->top = L->base + p->maxstacksize;
+292     lua_assert(ci->top <= L->stack_last);
+296     for (st = L->top; st < ci->top; st++)
+297       setnilvalue(st);
+298     L->top = ci->top;
+304     return PCRLUA;
+305   }
+```
+
+把关键的代码挑拣出来之后,上面代码的含义就一目了然了:
+
+* 从lua\_State的CallInfo数组中得到一个新的CallInfo结构体,设置它的func/base/top指针.
+* 296-297行的作用,是把多余的函数参数赋值为nil,比如一个函数定义中需要的是两个参数,实际传入的只有一个,那么多出来的那个参数在这里会被赋值为nil.
+* 将这里创建的CallInfo指针的top/base指针赋值给lua\_State结构体的top/base指针.
+
+然后会进入luaV\_execute函数,这里是虚拟机执行代码的主函数:
 
 ```
 (lvm.c)
@@ -126,12 +162,30 @@ lua\_pcall函数中,首先获取需要调用的函数指针:
 (ldo.c)
 293     L->savedpc = p->code;  /* starting point */
 ```
+
+最后,在执行完毕之后,还会调用luaD_poscall函数恢复到上一次函数调用的环境:
+
+```C
+342 int luaD_poscall (lua_State *L, StkId firstResult) {
+	// ... 
+351   L->base = (ci - 1)->base;  /* restore base */
+352   L->savedpc = (ci - 1)->savedpc;  /* restore savedpc */
+353   /* move results to correct place */
+354   for (i = wanted; i != 0 && firstResult < L->top; i--)
+355     setobjs2s(L, res++, firstResult++);
+356   while (i-- > 0)
+357     setnilvalue(res++);
+358   L->top = res;
+359   return (wanted - LUA_MULTRET);  /* 0 iff wanted == LUA_MULTRET */
+360 }
+```
 	
 现在,大致的流程已经清楚了,我们来回顾一下整个流程:
 
 1.	函数f\_parser中,对Lua代码文件的分析返回了Proto指针
 2.	函数luaD\_precall中,将Lua\_state的savepc指针指向第1步中的Proto结构体的code指针
 3.	函数luaV\_execute中,pc指针指向第2步中的savepc指针,紧跟着就是一个大的循环体,依次取出其中的opcode进行执行.
+4.	执行完毕之后,调用luaD\_poscall函数恢复到上一个函数的环境.
 	
 因此,Lua虚拟机指令执行的两大入口函数,分别是:
 	

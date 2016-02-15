@@ -17,26 +17,28 @@
 ##实验用C代码
 我在自己研究分析Lua解释器原理的时候,由于需要分不同的Lua指令来进行分析,所以我写了一个简单的C代码,根据命令行参数来读取不同的Lua文件来执行,然后我可以gdb来调试这个程序,于是就能较为方便的研究Lua解释器的工作原理.该代码如下:
 
-	#include <stdio.h>
-	#include <lua.h>
-	#include <lualib.h>
-	#include <lauxlib.h>
+```C
+#include <stdio.h>
+#include <lua.h>
+#include <lualib.h>
+#include <lauxlib.h>
 
-	int main(int argc, char *argv[]) {
-  		char *file = NULL;
+int main(int argc, char *argv[]) {
+  	char *file = NULL;
   		
-  		if (argc == 1) {
-    		file = "my.lua";
-  		} else {
-    		file = argv[1];
-  		}
+  	if (argc == 1) {
+    	file = "my.lua";
+  	} else {
+    	file = argv[1];
+  	}
 
-  		lua_State *L = lua_open();
-  		luaL_openlibs(L);
-  		luaL_dofile(L, file);
+  	lua_State *L = lua_open();
+  	luaL_openlibs(L);
+  	luaL_dofile(L, file);
 
-  		return 0;
-	}
+  	return 0;
+}
+```
 	
 假设上面的C代码编译生成了test,而前面的那个打印"Hello World"的Lua脚本文件名为"hello.lua",那么执行:
 
@@ -44,9 +46,9 @@
 就可以解释执行出hello.lua中的代码,通过使用gdb等调试工具,就可以来进一步观察分析Lua解释器的行为.现在以及以后对Lua指令的分析,就是通过这个程序执行不同的Lua脚本文件来进行分析的.
 
 ##Lua虚拟机数据结构
-在开始下面的分析之前,首先来介绍一下两个重要的数据结构:lua_State以及global_State.
+在开始下面的分析之前,首先来介绍一下两个重要的数据结构:lua_State以及global\_State.
 
-lua_State可以认为是每一个Lua"线程"所独有的一份数据,后面介绍到Lua协程时会明白这里所谓的"线程"是什么意思.
+lua\_State可以认为是每一个Lua"线程"所独有的一份数据,后面介绍到Lua协程时会明白这里所谓的"线程"是什么意思.
 
 将其中各个成员变量分类介绍以含义如下:
 
@@ -62,14 +64,14 @@ lua_State可以认为是每一个Lua"线程"所独有的一份数据,后面介�
 前面提过,每次函数调用都对应一个CallInfo结构体,
 
 * CallInfo *ci:指向当前函数的CallInfo数据指针
-* CallInfo *end_ci:指向CallInfo数组的结束位置
-* CallInfo *base_ci:指向CallInfo数组的起始位置
-* int size_ci:CallInfo数组的大小
+* CallInfo *end\_ci:指向CallInfo数组的结束位置
+* CallInfo *base\_ci:指向CallInfo数组的起始位置
+* int size\_ci:CallInfo数组的大小
 
 ### hook相关
 
-* lu_byte hookmask:hook mask位,分别有以下几种值:LUA_MASKCALL
-* lu_byte allowhook;
+* lu\_byte hookmask:hook mask位,分别有以下几种值:LUA_MASKCALL
+* lu\_byte allowhook;
 * int basehookcount;
 * int hookcount;
 * lua_Hook hook;
@@ -90,54 +92,24 @@ lua_State可以认为是每一个Lua"线程"所独有的一份数据,后面介�
 * ptrdiff_t errfunc;  /* current error handling function (stack index) */
 
 
-
-global_State是一个进程独有的数据结构,它其中的很多数据会被该进程中所有的lua_State所共享.换言之,一个进程只会有一个global_State,但是却可能有多份lua_State,它们之间是一对多的关系.
-
- 	65 /*
- 	66 ** `global state', shared by all threads of this state
- 	67 */
- 	68 typedef struct global_State {
- 	69   stringtable strt;  /* hash table for strings */
- 	70   lua_Alloc frealloc;  /* function to reallocate memory */
- 	71   void *ud;         /* auxiliary data to `frealloc' */
- 	72   lu_byte currentwhite;
- 	73   lu_byte gcstate;  /* state of garbage collector */
- 	74   int sweepstrgc;  /* position of sweep in `strt' */
- 	75   GCObject *rootgc;  /* list of all collectable objects */
- 	76   GCObject **sweepgc;  /* position of sweep in `rootgc' */
- 	77   GCObject *gray;  /* list of gray objects */
- 	78   GCObject *grayagain;  /* list of objects to be traversed atomically */
- 	79   GCObject *weak;  /* list of weak tables (to be cleared) */
- 	80   GCObject *tmudata;  /* last element of list of userdata to be GC */
- 	81   Mbuffer buff;  /* temporary buffer for string concatentation */
- 	82   lu_mem GCthreshold; 
- 	83   lu_mem totalbytes;  /* number of bytes currently allocated */
- 	84   lu_mem estimate;  /* an estimate of number of bytes actually in use */
- 	85   lu_mem gcdept;  /* how much GC is `behind schedule' */
- 	86   int gcpause;  /* size of pause between successive GCs */
- 	87   int gcstepmul;  /* GC `granularity' */
- 	88   lua_CFunction panic;  /* to be called in unprotected errors */
- 	89   TValue l_registry;
- 	90   struct lua_State *mainthread;
- 	91   UpVal uvhead;  /* head of double-linked list of all open upvalues */
- 	92   struct Table *mt[NUM_TAGS];  /* metatables for basic types */
- 	93   TString *tmname[TM_N];  /* array with tag-method names */
- 	94 } global_State;
+global\_State是一个进程独有的数据结构,它其中的很多数据会被该进程中所有的lua\_State所共享.换言之,一个进程只会有一个global\_State,但是却可能有多份lua\_State,它们之间是一对多的关系.
  
 ##初始化Lua虚拟机指针
-首先来看第一步,调用lua_open函数创建并且初始化一个Lua虚拟机指针,来看看这里具体做了什么事情.
+首先来看第一步,调用lua\_open函数创建并且初始化一个Lua虚拟机指针,来看看这里具体做了什么事情.
 
-lua_open实际上是一个宏,其最终会调用函数luaL_newstate来创建一个Lua_State指针,这里主要完成的是lua_State结构体的初始化及其成员变量以及global_State结构体的初始化工作.
+lua\_open实际上是一个宏,其最终会调用函数luaL\_newstate来创建一个Lua\_State指针,这里主要完成的是lua_State结构体的初始化及其成员变量以及global\_State结构体的初始化工作.
 
 
 ##读取脚本文件
-初始化完毕lua_State结构体之后,下一步就是读取Lua脚本文件,进行词法分析->语法分析->语义分析,最后生成Lua虚拟机指令.这一步的入口是调用luaL_dofile,这也是一个宏:
+初始化完毕lua\_State结构体之后,下一步就是读取Lua脚本文件,进行词法分析->语法分析->语义分析,最后生成Lua虚拟机指令.这一步的入口是调用luaL\_dofile,这也是一个宏:
 
+```
 	(lauxlib.h)
 	111 #define luaL_dofile(L, fn) \
 	112   (luaL_loadfile(L, fn) || lua_pcall(L, 0, LUA_MULTRET, 0))
+```
 
-可以看到,这个宏包括了两个函数调用,首先调用luaL_loadfile函数,这个函数主要是对Lua脚本进行上述所说的分析,而只有在这个函数返回0也就是调用成功的时候,才会调用lua_pcall函数,这个函数将会根据上一步成功分析完毕之后生成的Lua虚拟机指令来执行.下面依次来看看这几个过程中涉及到的重要函数和数据结构.
+可以看到,这个宏包括了两个函数调用,首先调用luaL\_loadfile函数,这个函数主要是对Lua脚本进行上述所说的分析,而只有在这个函数返回0也就是调用成功的时候,才会调用lua\_pcall函数,这个函数将会根据上一步成功分析完毕之后生成的Lua虚拟机指令来执行.下面依次来看看这几个过程中涉及到的重要函数和数据结构.
 
 
 ###分析Lua脚本文件

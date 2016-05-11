@@ -36,7 +36,7 @@
 C语言中,struct/union这样的复合数据类型,是按照这个类型中最大对齐量的数据来进行对齐的,所以这里就是按照double类型的对齐量来进行对齐,一般而言是8字节.	
 而在结构体tsv中,其最大的对齐单位肯定不会比double大,所以整个TString union是按照double的对齐量来进行对齐的.
 
-在Lua中,所有字符串是一个保存在一个全局的地方,在globale_state的strt里面,这是一个hash数组,专门用于存放字符串:
+在Lua中,所有字符串是一个保存在一个全局的地方,在global_state的strt里面,这是一个hash数组,专门用于存放字符串:
 
 	(lstate.h)
  	38 typedef struct stringtable {

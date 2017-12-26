@@ -1,4 +1,4 @@
-##ChunkSpy使用说明
+## ChunkSpy使用说明
 
 ChunkSpy是一个可以对Lua二进制文件进行反编译拿到对应Opcode的工具,其作者也是文档<<A No-Frills Introduction to Lua 5.1 VM Instructions>>的作者,这篇文档是我阅读Lua代码中参考最多的文档,结合着ChunkSpy工具,可以很好的分析Lua代码对应的Opcode指令,它的下载地址在[这里](http://chunkspy.luaforge.net/).
 
@@ -97,22 +97,3 @@ ChunkSpy是一个可以对Lua二进制文件进行反编译拿到对应Opcode的
 	ChunkSpy.lua:1120: mismatch in size_t size (needs 4 but read 8)
 
 那么可以尝试着把代码中两个定义size_size_t的地方由4改为8.
-
-
-
-    
-
-
-
-
-
-    
-
-
-
-
-
-
-
-
-

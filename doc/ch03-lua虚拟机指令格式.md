@@ -1,7 +1,6 @@
-#Lua虚拟机指令格式
+# Lua虚拟机指令格式
 
 Lua虚拟机的指令格式如下图所示：
-
 
 ![OpCode](https://raw.github.com/lichuang/Lua-Source-Internal/master/pic/opcode.png "OpCode")
 

@@ -1,3 +1,10 @@
+*本书已经由图灵出版社正式出版，书名[《Lua设计与实现》](https://book.douban.com/subject/27108476/)。*
+
+*喜欢的朋友，可以购买一本支持作者，购买链接：*
+
+*	[京东](https://item.jd.com/12172435.html)
+*	[当当](http://product.dangdang.com/25156893.html)
+
 *	第一章 概论
 
 *	第二章 基础数据结构

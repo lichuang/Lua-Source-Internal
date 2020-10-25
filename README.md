@@ -4,7 +4,7 @@
 
 *	[京东](https://item.jd.com/12172435.html)
 *	[当当](http://product.dangdang.com/25156893.html)
-*       [图灵出版社电子版](https://www.ituring.com.cn/book/2001)
+*	[图灵出版社电子版](https://www.ituring.com.cn/book/2001)
 
 *	第一章 概论
 
